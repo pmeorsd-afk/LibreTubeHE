@@ -516,6 +516,8 @@ class MainActivity : AbstractPlayerHostActivity() {
                 TopLevelDestination.Home.route -> navController.navigate(R.id.homeFragment)
                 TopLevelDestination.Trends.route -> navController.navigate(R.id.trendsFragment)
                 TopLevelDestination.Subscriptions.route -> navController.navigate(R.id.subscriptionsFragment)
+                TopLevelDestination.Music.route -> navController.navigate(R.id.musicFragment)
+                TopLevelDestination.Shorts.route -> navController.navigate(R.id.shortsFragment)
                 TopLevelDestination.Library.route -> navController.navigate(R.id.libraryFragment)
             }
         }

@@ -6,9 +6,16 @@
 
         <ListPreference
             android:icon="@drawable/ic_translate"
-            app:defaultValue="sys"
+            app:defaultValue="iw"
             app:key="language"
             app:title="@string/changeLanguage"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:icon="@drawable/ic_region"
+            app:defaultValue="IL"
+            app:key="region"
+            app:title="@string/region"
             app:useSimpleSummaryProvider="true" />
 
     </PreferenceCategory>

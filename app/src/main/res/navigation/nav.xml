@@ -65,6 +65,16 @@
         android:label="fragment_subscriptions"
         tools:layout="@layout/fragment_subscriptions" />
     <fragment
+        android:id="@+id/musicFragment"
+        android:name="com.github.libretube.ui.fragments.MusicFragment"
+        android:label="@string/music"
+        tools:layout="@layout/fragment_trends_content" />
+    <fragment
+        android:id="@+id/shortsFragment"
+        android:name="com.github.libretube.ui.fragments.ShortsFragment"
+        android:label="@string/shorts"
+        tools:layout="@layout/fragment_trends_content" />
+    <fragment
         android:id="@+id/libraryFragment"
         android:name="com.github.libretube.ui.fragments.LibraryFragment"
         android:label="fragment_library"

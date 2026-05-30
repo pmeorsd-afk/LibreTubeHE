@@ -67,6 +67,14 @@ class GeneralSettings : BasePreferenceFragment() {
             }
         }
 
+        val region = findPreference<ListPreference>(PreferenceKeys.REGION)
+        val countries = LocaleHelper.getAvailableCountries()
+        region?.entries = countries.map { it.name }.toTypedArray()
+        region?.entryValues = countries.map { it.code }.toTypedArray()
+        if (region?.value.isNullOrBlank()) {
+            region?.value = "IL"
+        }
+
         val autoRotation = findPreference<ListPreference>(PreferenceKeys.ORIENTATION)
         autoRotation?.setOnPreferenceChangeListener { _, _ ->
             RequireRestartDialog().show(childFragmentManager, RequireRestartDialog::class.java.name)

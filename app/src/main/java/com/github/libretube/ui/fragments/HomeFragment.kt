@@ -10,7 +10,6 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.github.libretube.R
-import com.github.libretube.api.MediaServiceRepository
 import com.github.libretube.api.TrendingCategory
 import com.github.libretube.api.obj.Playlists
 import com.github.libretube.api.obj.StreamItem
@@ -29,7 +28,6 @@ import com.github.libretube.ui.models.TrendsViewModel
 import com.google.android.material.carousel.CarouselLayoutManager
 import com.google.android.material.carousel.CarouselSnapHelper
 import com.google.android.material.carousel.UncontainedCarouselStrategy
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 
 
@@ -110,43 +108,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             fetchHomeFeed()
         }
 
-        binding.trendingRegion.setOnClickListener {
-            TrendsFragment.showChangeRegionDialog(requireContext()) {
-                fetchHomeFeed()
-            }
-        }
-
-        val trendingCategories = MediaServiceRepository.instance.getTrendingCategories()
-        binding.trendingCategory.isVisible = trendingCategories.size > 1
-        binding.trendingCategory.setOnClickListener {
-            val currentTrendingCategoryPref = PreferenceHelper.getString(
-                PreferenceKeys.TRENDING_CATEGORY,
-                TrendingCategory.LIVE.name
-            ).let { categoryName -> trendingCategories.first { it.name == categoryName } }
-
-            val categories = trendingCategories.map { category ->
-                category to getString(category.titleRes)
-            }
-
-            var selected = trendingCategories.indexOf(currentTrendingCategoryPref)
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.category)
-                .setSingleChoiceItems(
-                    categories.map { it.second }.toTypedArray(),
-                    selected
-                ) { _, checked ->
-                    selected = checked
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .setPositiveButton(R.string.okay) { _, _ ->
-                    PreferenceHelper.putString(
-                        PreferenceKeys.TRENDING_CATEGORY,
-                        trendingCategories[selected].name
-                    )
-                    fetchHomeFeed()
-                }
-                .show()
-        }
+        binding.trendingRegion.isGone = true
+        binding.trendingCategory.isGone = true
 
         binding.refreshButton.setOnClickListener {
             fetchHomeFeed()

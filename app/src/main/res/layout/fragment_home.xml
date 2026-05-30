@@ -102,6 +102,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
+                        android:visibility="gone"
                         app:icon="@drawable/ic_frame"
                         android:tooltipText="@string/category"/>
 
@@ -112,6 +113,7 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
                         android:layout_marginStart="5dp"
+                        android:visibility="gone"
                         app:icon="@drawable/ic_region"
                         android:tooltipText="@string/region"/>
 

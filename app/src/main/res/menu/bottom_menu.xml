@@ -18,6 +18,16 @@
         android:title="@string/subscriptions" />
 
     <item
+        android:id="@+id/musicFragment"
+        android:icon="@drawable/music_flat_symbol"
+        android:title="@string/music" />
+
+    <item
+        android:id="@+id/shortsFragment"
+        android:icon="@drawable/ic_play_circle"
+        android:title="@string/shorts" />
+
+    <item
         android:id="@+id/libraryFragment"
         android:icon="@drawable/ic_library"
         android:title="@string/library" />
