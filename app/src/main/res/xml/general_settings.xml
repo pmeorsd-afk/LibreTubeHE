@@ -6,7 +6,7 @@
 
         <ListPreference
             android:icon="@drawable/ic_translate"
-            app:defaultValue="iw"
+            app:defaultValue="he"
             app:key="language"
             app:title="@string/changeLanguage"
             app:useSimpleSummaryProvider="true" />

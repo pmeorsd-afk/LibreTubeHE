@@ -2,6 +2,7 @@ package com.github.libretube.helpers
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -29,10 +30,18 @@ object ShortcutHelper {
 
     fun createShortcuts(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
-            if (ShortcutManagerCompat.getDynamicShortcuts(context).isEmpty()) {
-                val dynamicShortcuts =
-                    TopLevelDestination.entries.map { createShortcut(context, it) }
-                ShortcutManagerCompat.setDynamicShortcuts(context, dynamicShortcuts)
+            try {
+                if (ShortcutManagerCompat.getDynamicShortcuts(context).isEmpty()) {
+                    val maxShortcutCount =
+                        ShortcutManagerCompat.getMaxShortcutCountPerActivity(context)
+                    val dynamicShortcuts = TopLevelDestination.entries
+                        .take(maxShortcutCount)
+                        .map { createShortcut(context, it) }
+
+                    ShortcutManagerCompat.setDynamicShortcuts(context, dynamicShortcuts)
+                }
+            } catch (e: Exception) {
+                Log.w("ShortcutHelper", "Failed to create dynamic shortcuts", e)
             }
         }
     }
