@@ -334,7 +334,7 @@
     <string name="auto_quality">Auto</string>
     <string name="limit_to_runtime">Limit to runtime</string>
     <string name="trends">Trends</string>
-    <string name="featured">Featured</string>
+    <string name="featured">Recommended for you</string>
     <string name="trending">What\'s trending now</string>
     <string name="bookmarks">Bookmarks</string>
     <string name="bookmark">Bookmark</string>

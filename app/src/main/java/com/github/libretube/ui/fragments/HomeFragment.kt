@@ -10,10 +10,8 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.github.libretube.R
-import com.github.libretube.api.TrendingCategory
 import com.github.libretube.api.obj.Playlists
 import com.github.libretube.api.obj.StreamItem
-import com.github.libretube.constants.PreferenceKeys
 import com.github.libretube.constants.PreferenceKeys.HOME_TAB_CONTENT
 import com.github.libretube.databinding.FragmentHomeBinding
 import com.github.libretube.db.obj.PlaylistBookmark
@@ -24,7 +22,6 @@ import com.github.libretube.ui.adapters.CarouselPlaylistAdapter
 import com.github.libretube.ui.adapters.VideoCardsAdapter
 import com.github.libretube.ui.models.HomeViewModel
 import com.github.libretube.ui.models.SubscriptionsViewModel
-import com.github.libretube.ui.models.TrendsViewModel
 import com.google.android.material.carousel.CarouselLayoutManager
 import com.google.android.material.carousel.CarouselSnapHelper
 import com.google.android.material.carousel.UncontainedCarouselStrategy
@@ -37,9 +34,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     private val homeViewModel: HomeViewModel by activityViewModels()
     private val subscriptionsViewModel: SubscriptionsViewModel by activityViewModels()
-    private val trendsViewModel: TrendsViewModel by activityViewModels()
 
-    private val trendingAdapter = VideoCardsAdapter()
     private val feedAdapter = VideoCardsAdapter(columnWidthDp = 250f)
     private val watchingAdapter = VideoCardsAdapter(columnWidthDp = 250f)
     private val bookmarkAdapter = CarouselPlaylistAdapter()
@@ -58,7 +53,6 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val playlistsSnapHelper = CarouselSnapHelper()
         playlistsSnapHelper.attachToRecyclerView(binding.playlistsRV)
 
-        binding.trendingRV.adapter = trendingAdapter
         binding.featuredRV.adapter = feedAdapter
         binding.bookmarksRV.adapter = bookmarkAdapter
         binding.playlistsRV.adapter = playlistAdapter
@@ -75,10 +69,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         binding.watchingRV.adapter = watchingAdapter
 
         with(homeViewModel) {
-            trending.observe(viewLifecycleOwner, ::showTrending)
             feed.observe(viewLifecycleOwner, ::showFeed)
-            bookmarks.observe(viewLifecycleOwner, ::showBookmarks)
-            playlists.observe(viewLifecycleOwner, ::showPlaylists)
             continueWatching.observe(viewLifecycleOwner, ::showContinueWatching)
             isLoading.observe(viewLifecycleOwner, ::updateLoading)
         }
@@ -89,10 +80,6 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
         binding.watchingTV.setOnClickListener {
             findNavController().navigate(R.id.action_homeFragment_to_watchHistoryFragment)
-        }
-
-        binding.trendingTV.setOnClickListener {
-            findNavController().navigate(R.id.action_homeFragment_to_trendsFragment)
         }
 
         binding.playlistsTV.setOnClickListener {
@@ -110,6 +97,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
         binding.trendingRegion.isGone = true
         binding.trendingCategory.isGone = true
+        binding.trendingTV.isGone = true
+        binding.trendingRV.isGone = true
 
         binding.refreshButton.setOnClickListener {
             fetchHomeFeed()
@@ -123,13 +112,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     override fun onResume() {
         super.onResume()
 
-        // Avoid re-fetching when re-entering the screen if it was loaded successfully, except when
-        // the value of trending region has changed
-        val isTrendingRegionChanged = homeViewModel.trending.value?.let {
-            it.second.region != PreferenceHelper.getTrendingRegion(requireContext())
-        } == true
-
-        if (homeViewModel.loadedSuccessfully.value == false || isTrendingRegionChanged) {
+        if (homeViewModel.loadedSuccessfully.value == false) {
             fetchHomeFeed()
         }
     }
@@ -152,27 +135,17 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         )
     }
 
-    private fun showTrending(trends: Pair<TrendingCategory, TrendsViewModel.TrendingStreams>?) {
-        if (trends == null) return
-        val (category, trendingStreams) = trends
-
-        // cache the loaded trends in the [TrendsViewModel] so that the trends don't need to be
-        // reloaded there
-        val region = PreferenceHelper.getTrendingRegion(requireContext())
-        trendsViewModel.setStreamsForCategory(
-            category,
-            TrendsViewModel.TrendingStreams(region, trendingStreams.streams)
-        )
-
-        makeVisible(binding.trendingRV, binding.trendingTV)
-        trendingAdapter.submitList(trendingStreams.streams.take(10))
-    }
-
     private fun showFeed(streamItems: List<StreamItem>?) {
         if (streamItems == null) return
+        if (streamItems.isEmpty()) {
+            binding.featuredRV.isGone = true
+            binding.featuredTV.isGone = true
+            feedAdapter.submitList(emptyList())
+            return
+        }
 
         makeVisible(binding.featuredRV, binding.featuredTV)
-        val feedVideos = streamItems.take(20)
+        val feedVideos = streamItems.take(40)
 
         feedAdapter.submitList(feedVideos)
     }
@@ -205,6 +178,12 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     private fun showContinueWatching(unwatchedVideos: List<StreamItem>?) {
         if (unwatchedVideos == null) return
+        if (unwatchedVideos.isEmpty()) {
+            binding.watchingRV.isGone = true
+            binding.watchingTV.isGone = true
+            watchingAdapter.submitList(emptyList())
+            return
+        }
 
         makeVisible(binding.watchingRV, binding.watchingTV)
         watchingAdapter.submitList(unwatchedVideos)
