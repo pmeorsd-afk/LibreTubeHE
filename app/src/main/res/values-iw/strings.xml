@@ -538,6 +538,16 @@
     <string name="trailers">קדימונים</string>
     <string name="music">מוזיקה</string>
     <string name="shorts">שורטים</string>
+    <string name="back">חזרה</string>
+    <string name="play">ניגון</string>
+    <string name="like">לייק</string>
+    <string name="dislike">דיסלייק</string>
+    <string name="description">תיאור</string>
+    <string name="flow_quick_picks">בחירות מהירות</string>
+    <string name="flow_speed_dial">חיוג מהיר</string>
+    <string name="flow_recommended">מומלץ</string>
+    <string name="flow_recently_played">נוגן לאחרונה</string>
+    <string name="flow_original_sound">סאונד מקורי - %1$s</string>
     <string name="include_timestamp_in_filename">לכלול חותמת זמן בשם הקובץ</string>
     <string name="unsubscribe_snackbar_message">ההרשמה אל %1$s בוטלה בהצלחה</string>
     <string name="did_you_mean">האם הכוונה הייתה:</string>
