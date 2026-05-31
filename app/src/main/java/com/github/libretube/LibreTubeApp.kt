@@ -5,13 +5,16 @@ import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.ExistingPeriodicWorkPolicy
 import com.github.libretube.helpers.ImageHelper
+import com.github.libretube.helpers.FlowBridgeInitializer
 import com.github.libretube.helpers.NewPipeExtractorInstance
 import com.github.libretube.helpers.NotificationHelper
 import com.github.libretube.helpers.PreferenceHelper
 import com.github.libretube.helpers.ProxyHelper
 import com.github.libretube.helpers.ShortcutHelper
 import com.github.libretube.util.ExceptionHandler
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
 class LibreTubeApp : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -59,6 +62,7 @@ class LibreTubeApp : Application() {
         ShortcutHelper.createShortcuts(this)
 
         NewPipeExtractorInstance.init()
+        FlowBridgeInitializer.initialize(this)
     }
 
     /**
