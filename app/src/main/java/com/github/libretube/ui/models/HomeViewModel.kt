@@ -16,6 +16,7 @@ import com.github.libretube.db.DatabaseHolder
 import com.github.libretube.db.obj.PlaylistBookmark
 import com.github.libretube.extensions.runSafely
 import com.github.libretube.extensions.updateIfChanged
+import com.github.libretube.helpers.FlowHistoryBridge
 import com.github.libretube.helpers.PlayerHelper
 import com.github.libretube.helpers.PreferenceHelper
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 class HomeViewModel : ViewModel() {
     private val hideWatched
@@ -84,17 +87,27 @@ class HomeViewModel : ViewModel() {
 
     private suspend fun loadTrending(context: Context) {
         val region = PreferenceHelper.getTrendingRegion(context)
-        val category = PreferenceHelper.getString(
+        val storedCategory = PreferenceHelper.getString(
             PreferenceKeys.TRENDING_CATEGORY,
-            TrendingCategory.LIVE.name
-        ).let { TrendingCategory.valueOf(it) }
+            TrendingCategory.MUSIC.name
+        )
+        val category = runCatching { TrendingCategory.valueOf(storedCategory) }
+            .getOrDefault(TrendingCategory.MUSIC)
+            .let { selected ->
+                if (selected == TrendingCategory.LIVE) {
+                    PreferenceHelper.putString(PreferenceKeys.TRENDING_CATEGORY, TrendingCategory.MUSIC.name)
+                    TrendingCategory.MUSIC
+                } else {
+                    selected
+                }
+            }
 
         runSafely(
             onSuccess = { videos ->
                 trending.updateIfChanged(
                     Pair(
                         category,
-                        TrendsViewModel.TrendingStreams(region, videos)
+                        TrendsViewModel.TrendingStreams(region, videos.homeVideosOnly())
                     )
                 )
             },
@@ -134,25 +147,75 @@ class HomeViewModel : ViewModel() {
     }
 
     private suspend fun loadWatchingFromDB(): List<StreamItem> {
-        val videos = DatabaseHelper.getWatchHistoryPage(1, 20)
+        val videos = (
+            DatabaseHelper.getWatchHistoryPage(1, 20) +
+                FlowHistoryBridge.getWatchHistoryPage(1, 20)
+            ).distinctBy { it.videoId }
 
         return DatabaseHelper
             .filterUnwatched(videos.map { it.toStreamItem() })
+            .homeVideosOnly()
     }
 
     private suspend fun tryLoadFeed(subscriptionsViewModel: SubscriptionsViewModel): List<StreamItem> {
         // use cached feed if available, otherwise load feed from API/database
-        val feed = subscriptionsViewModel.videoFeed.value ?: run {
+        val subscriptionFeed = subscriptionsViewModel.videoFeed.value ?: run {
             SubscriptionHelper.getFeed(forceRefresh = false).also {
                 subscriptionsViewModel.videoFeed.postValue(it)
             }
         }
 
-        return DatabaseHelper.filterByStreamTypeAndWatchPosition(feed, hideWatched, showUpcoming)
+        val filteredSubscriptions = DatabaseHelper
+            .filterByStreamTypeAndWatchPosition(subscriptionFeed, hideWatched, showUpcoming)
+            .homeVideosOnly()
+        val relatedFeed = loadPersonalizedRelatedFeed()
+
+        return (relatedFeed + filteredSubscriptions)
+            .distinctBy { it.url.orEmpty() }
+            .take(HOME_FEED_LIMIT)
+    }
+
+    private suspend fun loadPersonalizedRelatedFeed(): List<StreamItem> {
+        val seeds = (
+            DatabaseHelper.getWatchHistoryPage(1, RELATED_SEED_LIMIT) +
+                FlowHistoryBridge.getWatchHistoryPage(1, RELATED_SEED_LIMIT)
+            )
+            .distinctBy { it.videoId }
+            .filter { !it.isLive && !it.isShort && it.videoId.isNotBlank() }
+            .take(RELATED_SEED_LIMIT)
+
+        if (seeds.isEmpty()) return emptyList()
+
+        return supervisorScope {
+            seeds.map { seed ->
+                async(Dispatchers.IO) {
+                    withTimeoutOrNull(RELATED_REQUEST_TIMEOUT_MS) {
+                        runCatching {
+                            MediaServiceRepository.instance
+                                .getStreams(seed.videoId)
+                                .relatedStreams
+                                .homeVideosOnly()
+                        }.getOrDefault(emptyList())
+                    }.orEmpty()
+                }
+            }.awaitAll()
+                .flatten()
+                .distinctBy { it.url.orEmpty() }
+                .filter { item -> seeds.none { it.videoId == item.url.orEmpty() } }
+                .take(HOME_FEED_LIMIT)
+        }
+    }
+
+    private fun List<StreamItem>.homeVideosOnly(): List<StreamItem> = filter { item ->
+        val isStream = item.type == null || item.type == StreamItem.TYPE_STREAM
+        isStream && !item.isLive && !item.isUpcoming && !item.isShort && !item.title.isNullOrBlank()
     }
 
     companion object {
         private const val UNUSUAL_LOAD_TIME_MS = 10000L
+        private const val HOME_FEED_LIMIT = 40
+        private const val RELATED_SEED_LIMIT = 6
+        private const val RELATED_REQUEST_TIMEOUT_MS = 6000L
         private const val FEATURED = "featured"
         private const val WATCHING = "watching"
         private const val TRENDING = "trending"
