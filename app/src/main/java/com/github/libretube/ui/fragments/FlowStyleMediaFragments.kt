@@ -1,14 +1,18 @@
 package com.github.libretube.ui.fragments
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageButton
@@ -40,13 +44,17 @@ import com.github.libretube.api.TrendingCategory
 import com.github.libretube.api.obj.Streams
 import com.github.libretube.api.obj.StreamItem
 import com.github.libretube.constants.PreferenceKeys
+import com.github.libretube.db.DatabaseHelper
 import com.github.libretube.extensions.toID
+import com.github.libretube.helpers.BackgroundHelper
 import com.github.libretube.helpers.ImageHelper
 import com.github.libretube.helpers.NavigationHelper
 import com.github.libretube.helpers.PlayerHelper
 import com.github.libretube.helpers.PreferenceHelper
 import com.github.libretube.helpers.ProxyHelper
 import com.github.libretube.parcelable.PlayerData
+import com.github.libretube.util.PlayingQueue
+import com.github.libretube.util.PlayingQueueMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -120,12 +128,12 @@ class MusicFragment : FlowChromeFragment() {
     private lateinit var progress: ProgressBar
     private var selectedChip = "music"
 
-    private val chips = listOf(
-        "Workout" to "workout music",
-        "Energize" to "energizing music",
-        "Feel good" to "feel good music",
-        "Relax" to "relaxing music",
-        "Commute" to "commute music"
+    private fun musicChips() = listOf(
+        getString(R.string.flow_chip_workout) to "workout music",
+        getString(R.string.flow_chip_energize) to "energizing music",
+        getString(R.string.flow_chip_feel_good) to "feel good music",
+        getString(R.string.flow_chip_relax) to "relaxing music",
+        getString(R.string.flow_chip_commute) to "commute music"
     )
 
     override fun onCreateView(
@@ -176,14 +184,14 @@ class MusicFragment : FlowChromeFragment() {
         header.addView(iconButton(R.drawable.ic_arrow_back, getString(R.string.back)) { navigateHome() })
         header.addView(
             TextView(requireContext()).apply {
-                flowText("MUSIC", 34f, FLOW_TEXT, Typeface.BOLD)
+                flowText(getString(R.string.music), 34f, FLOW_TEXT, Typeface.BOLD)
                 letterSpacing = 0.08f
             },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = dp(12)
             }
         )
-        header.addView(iconButton(R.drawable.ic_search, getString(R.string.search_hint)) { openSearch() })
+        header.addView(iconButton(R.drawable.ic_search, getString(R.string.search_hint)) { showMusicSearch() })
         header.addView(iconButton(R.drawable.ic_settings, getString(R.string.settings)) { openSettings() })
         content.addView(header)
 
@@ -195,7 +203,7 @@ class MusicFragment : FlowChromeFragment() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, 0, dp(16), dp(12))
         }
-        chips.forEach { (label, query) ->
+        musicChips().forEach { (label, query) ->
             chipRow.addView(flowChip(label, query == selectedChip) {
                 selectedChip = query
                 renderStaticHeader()
@@ -222,6 +230,42 @@ class MusicFragment : FlowChromeFragment() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { marginEnd = dp(10) }
         }
+    }
+
+    private fun showMusicSearch() {
+        val input = EditText(requireContext()).apply {
+            hint = getString(R.string.flow_music_search_hint)
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_SEARCH
+            setSingleLine(true)
+        }
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle(R.string.flow_music_search_title)
+            .setView(input)
+            .setPositiveButton(R.string.search_hint) { _, _ ->
+                applyMusicSearch(input.text?.toString().orEmpty())
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            input.requestFocus()
+            input.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId != EditorInfo.IME_ACTION_SEARCH) return@setOnEditorActionListener false
+                applyMusicSearch(input.text?.toString().orEmpty())
+                dialog.dismiss()
+                true
+            }
+        }
+        dialog.show()
+    }
+
+    private fun applyMusicSearch(query: String) {
+        val cleanQuery = query.trim()
+        if (cleanQuery.isBlank()) return
+        selectedChip = cleanQuery
+        renderStaticHeader()
+        loadMusic()
     }
 
     private fun iconButton(@DrawableRes icon: Int, description: String, onClick: () -> Unit): ImageButton {
@@ -321,7 +365,7 @@ class MusicFragment : FlowChromeFragment() {
                     val slot = rowIndex * 3 + columnIndex
                     val item = pageItems.getOrNull(slot)
                     row.addView(
-                        if (pageIndex == 0 && slot == 8) speedShuffleCard(items) else speedDialCard(item),
+                        if (pageIndex == 0 && slot == 8) speedShuffleCard(items) else speedDialCard(item, items),
                         LinearLayout.LayoutParams(0, dp(106), 1f).apply {
                             marginEnd = if (columnIndex == 2) 0 else dp(8)
                             bottomMargin = if (rowIndex == 2) 0 else dp(8)
@@ -377,7 +421,7 @@ class MusicFragment : FlowChromeFragment() {
             setPadding(0, 0, dp(16), dp(16))
         }
         items.take(16).forEach { item ->
-            row.addView(albumCard(item))
+            row.addView(albumCard(item, items))
         }
         scroller.addView(row)
         content.addView(scroller)
@@ -390,10 +434,10 @@ class MusicFragment : FlowChromeFragment() {
         }
     }
 
-    private fun speedDialCard(item: StreamItem?): FrameLayout {
+    private fun speedDialCard(item: StreamItem?, playlist: List<StreamItem>): FrameLayout {
         return FrameLayout(requireContext()).apply {
             background = rounded(FLOW_DARK, dp(12))
-            setOnClickListener { item?.let(::openItem) }
+            setOnClickListener { item?.let { openItem(it, playlist) } }
 
             if (item != null) {
                 addView(
@@ -428,7 +472,10 @@ class MusicFragment : FlowChromeFragment() {
     private fun speedShuffleCard(items: List<StreamItem>): FrameLayout {
         return FrameLayout(requireContext()).apply {
             background = rounded(FLOW_DARK_SELECTED, dp(12), FLOW_RED)
-            setOnClickListener { items.shuffled().firstOrNull()?.let(::openItem) }
+            setOnClickListener {
+                val shuffled = items.shuffled()
+                shuffled.firstOrNull()?.let { openItem(it, shuffled) }
+            }
             addView(
                 ImageView(context).apply {
                     setImageResource(R.drawable.ic_play_circle)
@@ -445,7 +492,7 @@ class MusicFragment : FlowChromeFragment() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(6), 0, dp(6))
-            setOnClickListener { openItem(item) }
+            setOnClickListener { openItem(item, playlist) }
 
             addView(squareThumbnail(item, 58))
             addView(
@@ -466,11 +513,11 @@ class MusicFragment : FlowChromeFragment() {
         }
     }
 
-    private fun albumCard(item: StreamItem): LinearLayout {
+    private fun albumCard(item: StreamItem, playlist: List<StreamItem>): LinearLayout {
         return LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, 0, dp(16), 0)
-            setOnClickListener { openItem(item) }
+            setOnClickListener { openItem(item, playlist) }
             layoutParams = LinearLayout.LayoutParams(dp(180), ViewGroup.LayoutParams.WRAP_CONTENT)
 
             addView(squareThumbnail(item, 180))
@@ -500,14 +547,26 @@ class MusicFragment : FlowChromeFragment() {
         }
     }
 
-    private fun openItem(item: StreamItem) {
-        item.url?.toID()?.takeIf { it.isNotBlank() }?.let {
-            NavigationHelper.navigateVideo(
-                requireContext(),
-                PlayerData(it),
-                audioOnlyPlayerRequested = true
-            )
+    private fun openItem(item: StreamItem, playlist: List<StreamItem> = listOf(item)) {
+        val videoId = item.url?.toID()?.takeIf { it.isNotBlank() } ?: return
+        val queue = playlist
+            .filter { it.url?.toID()?.isNotBlank() == true }
+            .distinctBy { it.url?.toID().orEmpty() }
+            .ifEmpty { listOf(item) }
+
+        PlayingQueue.queueMode = PlayingQueueMode.ONLINE
+        PlayingQueue.clear()
+        PlayingQueue.setStreams(queue)
+        PlayingQueue.updateCurrent(item)
+
+        if (PlayerHelper.watchHistoryEnabled) {
+            viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                DatabaseHelper.addToWatchHistory(item.toWatchHistoryItem(videoId))
+            }
         }
+
+        BackgroundHelper.playOnBackground(requireContext(), PlayerData(videoId, keepQueue = true))
+        NavigationHelper.openAudioPlayerFragment(requireContext(), minimizeByDefault = false)
     }
 
     private data class MusicScreenState(
@@ -899,7 +958,16 @@ class ShortsFragment : FlowChromeFragment() {
         playbackJob = viewLifecycleOwner.lifecycleScope.launch {
             val mediaItem = withContext(Dispatchers.IO) {
                 runCatching {
-                    createShortMediaItem(MediaServiceRepository.instance.getStreams(videoId))
+                    val streams = MediaServiceRepository.instance.getStreams(videoId)
+                    val mediaItem = createShortMediaItem(streams)
+                    if (mediaItem != null && PlayerHelper.watchHistoryEnabled) {
+                        DatabaseHelper.addToWatchHistory(
+                            streams.toStreamItem(videoId)
+                                .toWatchHistoryItem(videoId)
+                                .copy(isShort = true)
+                        )
+                    }
+                    mediaItem
                 }.getOrNull()
             }
 
