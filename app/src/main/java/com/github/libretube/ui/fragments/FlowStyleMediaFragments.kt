@@ -19,24 +19,36 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.DrawableRes
+import androidx.core.net.toUri
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.github.libretube.R
 import com.github.libretube.api.MediaServiceRepository
 import com.github.libretube.api.TrendingCategory
+import com.github.libretube.api.obj.Streams
 import com.github.libretube.api.obj.StreamItem
 import com.github.libretube.constants.PreferenceKeys
 import com.github.libretube.extensions.toID
 import com.github.libretube.helpers.ImageHelper
 import com.github.libretube.helpers.NavigationHelper
+import com.github.libretube.helpers.PlayerHelper
 import com.github.libretube.helpers.PreferenceHelper
+import com.github.libretube.helpers.ProxyHelper
 import com.github.libretube.parcelable.PlayerData
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -490,7 +502,11 @@ class MusicFragment : FlowChromeFragment() {
 
     private fun openItem(item: StreamItem) {
         item.url?.toID()?.takeIf { it.isNotBlank() }?.let {
-            NavigationHelper.navigateVideo(requireContext(), PlayerData(it))
+            NavigationHelper.navigateVideo(
+                requireContext(),
+                PlayerData(it),
+                audioOnlyPlayerRequested = true
+            )
         }
     }
 
@@ -505,6 +521,19 @@ class ShortsFragment : FlowChromeFragment() {
     private lateinit var pager: ViewPager2
     private lateinit var progress: ProgressBar
     private val adapter = FlowShortsAdapter()
+    private var shortsPlayer: ExoPlayer? = null
+    private var currentShortVideoId: String? = null
+    private var currentPlayerView: PlayerView? = null
+    private var playbackJob: Job? = null
+    private var previousPage = 0
+    private val pageChangeCallback = object : ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) {
+            val oldPage = previousPage
+            previousPage = position
+            adapter.notifyItemChanged(oldPage)
+            adapter.notifyItemChanged(position)
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -519,6 +548,7 @@ class ShortsFragment : FlowChromeFragment() {
             orientation = ViewPager2.ORIENTATION_VERTICAL
             adapter = this@ShortsFragment.adapter
             overScrollMode = View.OVER_SCROLL_NEVER
+            registerOnPageChangeCallback(pageChangeCallback)
         }
         root.addView(
             pager,
@@ -532,6 +562,27 @@ class ShortsFragment : FlowChromeFragment() {
 
         loadShorts()
         return root
+    }
+
+    override fun onResume() {
+        super.onResume()
+        shortsPlayer?.play()
+    }
+
+    override fun onPause() {
+        shortsPlayer?.pause()
+        super.onPause()
+    }
+
+    override fun onDestroyView() {
+        playbackJob?.cancel()
+        currentPlayerView?.player = null
+        shortsPlayer?.release()
+        shortsPlayer = null
+        currentShortVideoId = null
+        currentPlayerView = null
+        runCatching { pager.unregisterOnPageChangeCallback(pageChangeCallback) }
+        super.onDestroyView()
     }
 
     private fun loadShorts() {
@@ -582,11 +633,11 @@ class ShortsFragment : FlowChromeFragment() {
         override fun getItemCount(): Int = items.size
 
         override fun onBindViewHolder(holder: ShortHolder, position: Int) {
-            holder.bind(items[position])
+            holder.bind(items[position], position)
         }
 
         inner class ShortHolder(private val page: ShortPageViews) : RecyclerView.ViewHolder(page.root) {
-            fun bind(item: StreamItem) {
+            fun bind(item: StreamItem, position: Int) {
                 item.thumbnail?.let { ImageHelper.loadImage(it, page.thumbnail) }
                 page.title.text = item.title.orEmpty()
                 page.channel.text = item.uploaderName.orEmpty()
@@ -594,8 +645,8 @@ class ShortsFragment : FlowChromeFragment() {
                 (item.uploaderAvatar ?: item.thumbnail)?.let { ImageHelper.loadImage(it, page.avatar) }
                 (item.thumbnail ?: item.uploaderAvatar)?.let { ImageHelper.loadImage(it, page.record) }
 
-                page.root.setOnClickListener { openShort(item) }
-                page.play.setOnClickListener { openShort(item) }
+                page.root.setOnClickListener { toggleShortPlayback(page) }
+                page.play.setOnClickListener { toggleShortPlayback(page) }
                 page.channelRow.setOnClickListener {
                     NavigationHelper.navigateChannel(requireContext(), item.uploaderUrl)
                 }
@@ -607,13 +658,26 @@ class ShortsFragment : FlowChromeFragment() {
                         Toast.LENGTH_LONG
                     ).show()
                 }
+
+                if (position == pager.currentItem) {
+                    attachPlayerToPage(page, item)
+                } else {
+                    if (page.playerView == currentPlayerView) currentPlayerView = null
+                    page.playerView.player = null
+                    page.playerView.isGone = true
+                    page.loading.isGone = true
+                    page.thumbnail.isVisible = true
+                    page.play.isVisible = true
+                }
             }
         }
     }
 
     private data class ShortPageViews(
         val root: FrameLayout,
+        val playerView: PlayerView,
         val thumbnail: ImageView,
+        val loading: ProgressBar,
         val title: TextView,
         val channel: TextView,
         val sound: TextView,
@@ -634,9 +698,19 @@ class ShortsFragment : FlowChromeFragment() {
             )
         }
 
+        val playerView = PlayerView(parent.context).apply {
+            useController = false
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            setShutterBackgroundColor(Color.TRANSPARENT)
+            setBackgroundColor(FLOW_BLACK)
+            isGone = true
+        }
+        root.addView(playerView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+
         val image = ImageView(parent.context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(FLOW_DARK)
+            tag = "short_thumbnail"
         }
         root.addView(image, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
 
@@ -653,8 +727,16 @@ class ShortsFragment : FlowChromeFragment() {
             setColorFilter(FLOW_TEXT)
             alpha = 0.88f
             contentDescription = getString(R.string.play)
+            tag = "short_play"
         }
         root.addView(play, FrameLayout.LayoutParams(dp(72), dp(72), Gravity.CENTER))
+
+        val loading = ProgressBar(parent.context).apply {
+            indeterminateTintList = android.content.res.ColorStateList.valueOf(FLOW_RED)
+            isGone = true
+            tag = "short_loading"
+        }
+        root.addView(loading, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER))
 
         val topBack = iconButtonForShort(R.drawable.ic_arrow_back, getString(R.string.back)) { navigateHome() }
         root.addView(
@@ -736,7 +818,7 @@ class ShortsFragment : FlowChromeFragment() {
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM)
         )
 
-        return ShortPageViews(root, image, title, channel, sound, avatar, record, channelRow, play, share, more)
+        return ShortPageViews(root, playerView, image, loading, title, channel, sound, avatar, record, channelRow, play, share, more)
     }
 
     private fun iconButtonForShort(@DrawableRes icon: Int, description: String, onClick: () -> Unit): ImageButton {
@@ -768,9 +850,100 @@ class ShortsFragment : FlowChromeFragment() {
         }
     }
 
-    private fun openShort(item: StreamItem) {
-        item.url?.toID()?.takeIf { it.isNotBlank() }?.let {
-            NavigationHelper.navigateVideo(requireContext(), PlayerData(it))
+    private fun getShortPlayer(): ExoPlayer {
+        return shortsPlayer ?: PlayerHelper
+            .createPlayer(requireContext(), DefaultTrackSelector(requireContext()))
+            .apply {
+                repeatMode = Player.REPEAT_MODE_ONE
+                playWhenReady = true
+                addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        val page = currentPlayerView ?: return
+                        val pageRoot = page.parent as? FrameLayout ?: return
+                        val loading = pageRoot.findViewWithTag<ProgressBar>("short_loading")
+                        val thumbnail = pageRoot.findViewWithTag<ImageView>("short_thumbnail")
+                        val play = pageRoot.findViewWithTag<ImageView>("short_play")
+                        loading?.isVisible = playbackState == Player.STATE_BUFFERING
+                        if (playbackState == Player.STATE_READY) {
+                            thumbnail?.isGone = true
+                            play?.isGone = true
+                        }
+                    }
+                })
+            }
+            .also { shortsPlayer = it }
+    }
+
+    private fun attachPlayerToPage(page: ShortPageViews, item: StreamItem) {
+        val videoId = item.url?.toID()?.takeIf { it.isNotBlank() } ?: return
+        val player = getShortPlayer()
+
+        if (currentPlayerView != page.playerView) {
+            currentPlayerView?.player = null
+            currentPlayerView = page.playerView
+            page.playerView.player = player
+        }
+
+        page.playerView.isVisible = true
+        page.loading.isVisible = currentShortVideoId != videoId || player.playbackState == Player.STATE_BUFFERING
+        page.thumbnail.isVisible = currentShortVideoId != videoId || player.playbackState != Player.STATE_READY
+        page.play.isVisible = currentShortVideoId != videoId || !player.isPlaying
+
+        if (currentShortVideoId == videoId) {
+            player.play()
+            return
+        }
+
+        currentShortVideoId = videoId
+        playbackJob?.cancel()
+        playbackJob = viewLifecycleOwner.lifecycleScope.launch {
+            val mediaItem = withContext(Dispatchers.IO) {
+                runCatching {
+                    createShortMediaItem(MediaServiceRepository.instance.getStreams(videoId))
+                }.getOrNull()
+            }
+
+            if (!isAdded || currentShortVideoId != videoId) return@launch
+            if (mediaItem == null) {
+                page.loading.isGone = true
+                page.play.isVisible = true
+                Toast.makeText(requireContext(), R.string.unknown_error, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            player.setMediaItem(mediaItem)
+            player.prepare()
+            player.playWhenReady = true
+            player.play()
+        }
+    }
+
+    private fun createShortMediaItem(streams: Streams): MediaItem? {
+        return when {
+            streams.videoStreams.isNotEmpty() -> {
+                MediaItem.Builder()
+                    .setUri(PlayerHelper.createDashSource(streams, requireContext()))
+                    .setMimeType(MimeTypes.APPLICATION_MPD)
+                    .build()
+            }
+            streams.hls != null -> {
+                MediaItem.Builder()
+                    .setUri(ProxyHelper.rewriteUrlUsingProxyPreference(streams.hls).toUri())
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .build()
+            }
+            else -> null
+        }
+    }
+
+    private fun toggleShortPlayback(page: ShortPageViews) {
+        val player = shortsPlayer ?: return
+        if (player.isPlaying) {
+            player.pause()
+            page.play.isVisible = true
+        } else {
+            player.play()
+            page.play.isGone = true
         }
     }
 
