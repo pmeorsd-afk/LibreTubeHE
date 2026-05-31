@@ -22,6 +22,7 @@ import com.github.libretube.db.obj.WatchHistoryItem
 import com.github.libretube.extensions.ceilHalf
 import com.github.libretube.extensions.dpToPx
 import com.github.libretube.extensions.setOnDismissListener
+import com.github.libretube.helpers.FlowHistoryBridge
 import com.github.libretube.helpers.NavigationHelper
 import com.github.libretube.parcelable.PlayerData
 import com.github.libretube.ui.adapters.WatchHistoryAdapter
@@ -111,6 +112,7 @@ class WatchHistoryFragment : DynamicLayoutManagerFragment(R.layout.fragment_watc
                     lifecycleScope.launch(Dispatchers.IO) {
                         Database.withTransaction {
                             Database.watchHistoryDao().deleteAll()
+                            FlowHistoryBridge.clearAll()
                             if (selected[0]) Database.watchPositionDao().deleteAll()
                         }
                     }

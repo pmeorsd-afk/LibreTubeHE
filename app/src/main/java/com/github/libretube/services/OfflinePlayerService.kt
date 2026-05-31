@@ -24,6 +24,7 @@ import com.github.libretube.extensions.parcelable
 import com.github.libretube.extensions.setMetadata
 import com.github.libretube.extensions.toAndroidUri
 import com.github.libretube.extensions.updateParameters
+import com.github.libretube.helpers.FlowHistoryBridge
 import com.github.libretube.helpers.PlayerHelper
 import com.github.libretube.parcelable.PlayerData
 import com.github.libretube.ui.activities.MainActivity
@@ -64,6 +65,7 @@ open class OfflinePlayerService : AbstractPlayerService() {
                         downloadWithItems?.download?.toStreamItem()?.toWatchHistoryItem(videoId)
                     if (watchHistoryItem != null) {
                         DatabaseHelper.addToWatchHistory(watchHistoryItem)
+                        FlowHistoryBridge.recordWatch(this@OfflinePlayerService, watchHistoryItem)
                     }
                 }
             }

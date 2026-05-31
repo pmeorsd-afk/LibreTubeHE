@@ -615,7 +615,7 @@ private fun PlaylistCenteredHeader(
                 ) {
                     Icon(
                         imageVector = if (isDownloading) Icons.Outlined.Downloading else Icons.Outlined.Download,
-                        contentDescription = "Download",
+                        contentDescription = stringResource(R.string.download),
                         tint = Color.White,
                         modifier = Modifier.size(22.dp)
                     )
@@ -651,7 +651,7 @@ private fun PlaylistCenteredHeader(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Play all",
+                    text = stringResource(R.string.action_play_all),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
@@ -667,7 +667,7 @@ private fun PlaylistCenteredHeader(
             ) {
                 Icon(
                     imageVector = Icons.Default.Shuffle,
-                    contentDescription = "Shuffle",
+                    contentDescription = stringResource(R.string.shuffle),
                     tint = Color.White,
                     modifier = Modifier.size(22.dp)
                 )

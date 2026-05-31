@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +70,7 @@ fun MusicSearchScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
+    val musicLanguage = LocalConfiguration.current.locales[0].language
 
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(100)
@@ -254,14 +256,14 @@ fun MusicSearchScreen(
                                 uiState.searchSummary?.summaries?.forEach { summary ->
                                     item {
                                         Text(
-                                            text = summary.title,
+                                            text = localizeMusicText(summary.title, musicLanguage),
                                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
                                     }
                                     
-                                    if (summary.title == topResultTarget) {
+                                    if (summary.title.equals("Top result", ignoreCase = true) || summary.title == topResultTarget) {
                                         item {
                                             TopResultCard(
                                                 item = summary.items.first(),

@@ -121,6 +121,13 @@ private fun NavController.openPlayerFor(track: MusicTrack) {
     navigate(playerRoute(track))
 }
 
+private fun NavController.goMusicHome() {
+    navigate(FlowMusicRoutes.HOME) {
+        popUpTo(FlowMusicRoutes.HOME) { inclusive = false }
+        launchSingleTop = true
+    }
+}
+
 @AndroidEntryPoint
 class MusicFragment : FlowChromeFragment() {
     override fun onCreateView(
@@ -152,7 +159,7 @@ class MusicFragment : FlowChromeFragment() {
                         val musicPlayerViewModel: MusicPlayerViewModel = hiltViewModel()
 
                         EnhancedMusicScreen(
-                            onBackClick = { navigateHome() },
+                            onBackClick = { navController.goMusicHome() },
                             onSongClick = { track, queue, source ->
                                 musicPlayerViewModel.loadAndPlayTrack(track, queue, source)
                                 navController.openPlayerFor(track)
@@ -418,7 +425,7 @@ class MusicFragment : FlowChromeFragment() {
 
                         EnhancedMusicPlayerScreen(
                             track = track,
-                            onBackClick = { navController.popBackStack() },
+                            onBackClick = { navController.goMusicHome() },
                             onArtistClick = { channelId ->
                                 navController.navigate(artistRoute(channelId))
                             },

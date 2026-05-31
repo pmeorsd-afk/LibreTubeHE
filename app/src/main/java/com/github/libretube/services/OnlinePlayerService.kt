@@ -25,6 +25,7 @@ import com.github.libretube.extensions.toastFromMainDispatcher
 import com.github.libretube.extensions.toastFromMainThread
 import com.github.libretube.extensions.updateParameters
 import com.github.libretube.helpers.PlayerHelper
+import com.github.libretube.helpers.FlowHistoryBridge
 import com.github.libretube.helpers.PlayerHelper.getSubtitleRoleFlags
 import com.github.libretube.helpers.ProxyHelper
 import com.github.libretube.parcelable.PlayerData
@@ -84,6 +85,7 @@ open class OnlinePlayerService : AbstractPlayerService() {
                                 val watchHistoryItem =
                                     streams.toStreamItem(videoId).toWatchHistoryItem(videoId)
                                 DatabaseHelper.addToWatchHistory(watchHistoryItem)
+                                FlowHistoryBridge.recordWatch(this@OnlinePlayerService, watchHistoryItem)
                             }
                         }
                     }

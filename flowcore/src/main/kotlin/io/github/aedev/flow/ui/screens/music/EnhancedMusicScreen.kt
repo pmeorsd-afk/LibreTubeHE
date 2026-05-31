@@ -66,6 +66,7 @@ fun EnhancedMusicScreen(
     val currentTrack by EnhancedMusicPlayerManager.currentTrack.collectAsState()
     val musicListState = rememberLazyListState()
     val quickPicksGridState = rememberLazyGridState()
+    val musicLanguage = LocalConfiguration.current.locales[0].language
 
     val sectionOrder = remember(uiState.sessionSeed) {
         val defaultOrder = HomeSectionType.values().toList()
@@ -243,7 +244,7 @@ fun EnhancedMusicScreen(
                                     items(uiState.homeChips) { chip ->
                                         val isChipSelected = uiState.selectedHomeChip?.title == chip.title
                                         ContentFilterChip(
-                                            title = chip.title,
+                                            title = localizeMusicText(chip.title, musicLanguage),
                                             isSelected = isChipSelected,
                                             onClick = { 
                                                 if (isChipSelected) {
@@ -425,8 +426,8 @@ fun EnhancedMusicScreen(
                                             item {
                                                 if (section.label != null) {
                                                     NavigationTitle(
-                                                        title = section.title,
-                                                        label = section.label,
+                                                        title = localizeMusicText(section.title, musicLanguage),
+                                                        label = section.label?.let { localizeMusicText(it, musicLanguage) },
                                                         thumbnail = {
                                                             if (section.thumbnailUrl != null) {
                                                                 if (section.isArtistSeed) {
@@ -453,7 +454,10 @@ fun EnhancedMusicScreen(
                                                         } else null
                                                     )
                                                 } else {
-                                                    SectionTitle(title = section.title, subtitle = section.subtitle)
+                                                    SectionTitle(
+                                                        title = localizeMusicText(section.title, musicLanguage),
+                                                        subtitle = section.subtitle?.let { localizeMusicText(it, musicLanguage) }
+                                                    )
                                                 }
 
                                                 val sectionThumbnailHeight = currentGridThumbnailHeight()
@@ -553,7 +557,12 @@ fun EnhancedMusicScreen(
                                     HomeSectionType.GENRES -> {
                                         uiState.genreTracks.entries.take(3).forEach { (genre, tracks) ->
                                             item {
-                                                SectionTitle(title = stringResource(R.string.genre_mix_template, genre))
+                                                SectionTitle(
+                                                    title = stringResource(
+                                                        R.string.genre_mix_template,
+                                                        localizeMusicText(genre, musicLanguage)
+                                                    )
+                                                )
                                                 val genreThumbnailHeight = currentGridThumbnailHeight()
                                                 LazyRow(
                                                     contentPadding = PaddingValues(horizontal = 12.dp),
@@ -589,7 +598,7 @@ fun EnhancedMusicScreen(
                                                 !section.title.contains("Listen again", true)) {
                                                 
                                                 item {
-                                                    SectionTitle(title = section.title)
+                                                    SectionTitle(title = localizeMusicText(section.title, musicLanguage))
                                                     val sectionThumbnailHeight = currentGridThumbnailHeight()
                                                     LazyRow(
                                                         contentPadding = PaddingValues(horizontal = 12.dp),
@@ -815,7 +824,7 @@ fun EnhancedMusicScreen(
                                                 ) {
                                                     items(moodItems) { item ->
                                                         MoodAndGenresButton(
-                                                            title = item.title,
+                                                            title = localizeMusicText(item.title, musicLanguage),
                                                             onClick = { onMoodsClick(item) },
                                                             modifier = Modifier.width(moodButtonWidth)
                                                         )

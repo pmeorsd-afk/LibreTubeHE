@@ -9,6 +9,7 @@ import com.github.libretube.constants.PreferenceKeys
 import com.github.libretube.db.DatabaseHelper
 import com.github.libretube.db.DatabaseHolder
 import com.github.libretube.db.obj.WatchHistoryItem
+import com.github.libretube.helpers.FlowHistoryBridge
 import com.github.libretube.helpers.PreferenceHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,7 +57,10 @@ class WatchHistoryModel : ViewModel() {
         isLoading = true
 
         val newHistory = withContext(Dispatchers.IO) {
-            DatabaseHelper.getWatchHistoryPage(currentPage, HISTORY_PAGE_SIZE)
+            (
+                DatabaseHelper.getWatchHistoryPage(currentPage, HISTORY_PAGE_SIZE) +
+                    FlowHistoryBridge.getWatchHistoryPage(currentPage, HISTORY_PAGE_SIZE)
+                ).distinctBy { it.videoId }
         }
 
         isLoading = false
@@ -72,6 +76,7 @@ class WatchHistoryModel : ViewModel() {
     fun removeFromHistory(watchHistoryItem: WatchHistoryItem) =
         viewModelScope.launch(Dispatchers.IO) {
             DatabaseHolder.Database.watchHistoryDao().delete(watchHistoryItem)
+            FlowHistoryBridge.removeWatch(watchHistoryItem.videoId)
 
             watchHistory.postValue(
                 watchHistory.value.orEmpty().filter { it != watchHistoryItem }
