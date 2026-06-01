@@ -585,4 +585,14 @@
         <item quantity="other">%d דק׳</item>
     </plurals>
     <string name="show_updates_summary">לבדוק עדכונים אוטומטית עם כל הפעלה של היישומון.</string>
+    <string name="home_start_search_hint">חיפוש ב-YouTube</string>
+    <string name="home_start_title">כדאי להתחיל לחפש</string>
+    <string name="home_start_subtitle">כדאי להתחיל לצפות בסרטונים כדי לעזור לנו ליצור פיד של סרטונים שימצאו חן בעיניך.</string>
+    <string name="home_voice_search">חיפוש קולי</string>
+    <string name="home_voice_search_unavailable">חיפוש קולי לא זמין במכשיר הזה.</string>
+    <string name="category_music">מוזיקה</string>
+    <string name="category_games">משחקים</string>
+    <string name="category_news">חדשות</string>
+    <string name="category_sports">ספורט</string>
+    <string name="category_podcasts">פודקאסטים</string>
 </resources>

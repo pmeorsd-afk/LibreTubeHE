@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.github.libretube.api.MediaServiceRepository
+import com.github.libretube.api.SubscriptionHelper
 import com.github.libretube.api.obj.StreamItem
 import com.github.libretube.db.DatabaseHelper
 import com.github.libretube.extensions.runSafely
@@ -43,7 +44,7 @@ class HomeViewModel : ViewModel() {
         loadHomeJob = viewModelScope.launch {
             val result = async {
                 awaitAll(
-                    async { loadFeed() },
+                    async { loadFeed(subscriptionsViewModel) },
                     async { loadVideosToContinueWatching() }
                 )
                 loadedSuccessfully.value = sections.any { it.value != null }
@@ -59,10 +60,10 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    private suspend fun loadFeed() {
+    private suspend fun loadFeed(subscriptionsViewModel: SubscriptionsViewModel) {
         runSafely(
             onSuccess = { videos -> feed.updateIfChanged(videos) },
-            ioBlock = { tryLoadFeed() }
+            ioBlock = { tryLoadFeed(subscriptionsViewModel) }
         )
     }
 
@@ -85,10 +86,23 @@ class HomeViewModel : ViewModel() {
             .homeVideosOnly()
     }
 
-    private suspend fun tryLoadFeed(): List<StreamItem> {
-        return loadPersonalizedRelatedFeed()
+    private suspend fun tryLoadFeed(subscriptionsViewModel: SubscriptionsViewModel): List<StreamItem> {
+        return (loadSubscriptionFeed(subscriptionsViewModel) + loadPersonalizedRelatedFeed())
             .distinctBy { it.url.orEmpty() }
             .take(HOME_FEED_LIMIT)
+    }
+
+    private suspend fun loadSubscriptionFeed(
+        subscriptionsViewModel: SubscriptionsViewModel
+    ): List<StreamItem> {
+        val cachedFeed = subscriptionsViewModel.videoFeed.value.orEmpty()
+        if (cachedFeed.isNotEmpty()) return cachedFeed.homeVideosOnly()
+
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                SubscriptionHelper.getFeed(forceRefresh = false)
+            }.getOrDefault(emptyList())
+        }.homeVideosOnly()
     }
 
     private suspend fun loadPersonalizedRelatedFeed(): List<StreamItem> {

@@ -1,19 +1,27 @@
 package com.github.libretube.ui.fragments
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.RecyclerView
+import com.github.libretube.NavDirections
 import com.github.libretube.R
 import com.github.libretube.api.obj.Playlists
 import com.github.libretube.api.obj.StreamItem
-import com.github.libretube.constants.PreferenceKeys.HOME_TAB_CONTENT
+import com.github.libretube.constants.PreferenceKeys
 import com.github.libretube.databinding.FragmentHomeBinding
+import com.github.libretube.db.DatabaseHelper
+import com.github.libretube.db.obj.SearchHistoryItem
 import com.github.libretube.db.obj.PlaylistBookmark
 import com.github.libretube.helpers.PreferenceHelper
 import com.github.libretube.ui.activities.SettingsActivity
@@ -26,6 +34,9 @@ import com.google.android.material.carousel.CarouselLayoutManager
 import com.google.android.material.carousel.CarouselSnapHelper
 import com.google.android.material.carousel.UncontainedCarouselStrategy
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 
 class HomeFragment : Fragment(R.layout.fragment_home) {
@@ -39,6 +50,22 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private val watchingAdapter = VideoCardsAdapter(columnWidthDp = 250f)
     private val bookmarkAdapter = CarouselPlaylistAdapter()
     private val playlistAdapter = CarouselPlaylistAdapter()
+
+    private val speechLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
+        val spokenQuery = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+            .orEmpty()
+
+        if (spokenQuery.isNotBlank()) {
+            _binding?.starterSearchInput?.setText(spokenQuery)
+            submitSearch(spokenQuery)
+        }
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _binding = FragmentHomeBinding.bind(view)
@@ -107,6 +134,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         binding.changeInstance.setOnClickListener {
             redirectToIntentSettings()
         }
+
+        setupStarterHome()
     }
 
     override fun onResume() {
@@ -124,8 +153,13 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     private fun fetchHomeFeed() {
         binding.nothingHere.isGone = true
+        binding.starterHome.isGone = true
+        binding.categoryOverlay.isGone = true
         val defaultItems = resources.getStringArray(R.array.homeTabItemsValues)
-        val visibleItems = PreferenceHelper.getStringSet(HOME_TAB_CONTENT, defaultItems.toSet())
+        val visibleItems = PreferenceHelper.getStringSet(
+            PreferenceKeys.HOME_TAB_CONTENT,
+            defaultItems.toSet()
+        )
 
         homeViewModel.loadHomeFeed(
             context = requireContext(),
@@ -141,6 +175,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             binding.featuredRV.isGone = true
             binding.featuredTV.isGone = true
             feedAdapter.submitList(emptyList())
+            updateStarterVisibility()
             return
         }
 
@@ -148,6 +183,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val feedVideos = streamItems.take(40)
 
         feedAdapter.submitList(feedVideos)
+        updateStarterVisibility()
     }
 
     private fun showBookmarks(bookmarks: List<PlaylistBookmark>?) {
@@ -182,11 +218,13 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             binding.watchingRV.isGone = true
             binding.watchingTV.isGone = true
             watchingAdapter.submitList(emptyList())
+            updateStarterVisibility()
             return
         }
 
         makeVisible(binding.watchingRV, binding.watchingTV)
         watchingAdapter.submitList(unwatchedVideos)
+        updateStarterVisibility()
     }
 
     private fun updateLoading(isLoading: Boolean) {
@@ -200,6 +238,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private fun showLoading() {
         binding.progress.isVisible = !binding.refresh.isRefreshing
         binding.nothingHere.isVisible = false
+        binding.starterHome.isVisible = false
+        binding.categoryOverlay.isVisible = false
         binding.scroll.alpha = 0.3f
     }
 
@@ -217,13 +257,24 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
 
     private fun showNothingHere() {
-        binding.nothingHere.isVisible = true
+        binding.starterHome.isVisible = true
+        binding.nothingHere.isVisible = false
         binding.scroll.isVisible = false
     }
 
     private fun showContent() {
         binding.nothingHere.isVisible = false
-        binding.scroll.isVisible = true
+        val hasHomeContent = hasHomeContent()
+        binding.starterHome.isVisible = !hasHomeContent
+        binding.scroll.isVisible = hasHomeContent
+        if (!hasHomeContent) {
+            binding.categoryOverlay.isVisible = false
+        }
+    }
+
+    private fun updateStarterVisibility() {
+        if (homeViewModel.isLoading.value == true) return
+        showContent()
     }
 
     private fun showChangeInstanceSnackBar() {
@@ -243,6 +294,94 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             putExtra(SettingsActivity.REDIRECT_KEY, SettingsActivity.REDIRECT_TO_INTENT_SETTINGS)
         }
         startActivity(settingsIntent)
+    }
+
+    private fun setupStarterHome() {
+        binding.starterSearchInput.setOnEditorActionListener { textView, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                submitSearch(textView.text?.toString().orEmpty())
+                true
+            } else {
+                false
+            }
+        }
+
+        binding.starterTopSearch.setOnClickListener {
+            binding.starterSearchInput.requestFocus()
+        }
+
+        binding.starterVoiceSearch.setOnClickListener {
+            startVoiceSearch()
+        }
+
+        binding.starterCategory.setOnClickListener {
+            binding.categoryOverlay.isVisible = true
+        }
+
+        binding.categoryOverlay.setOnClickListener {
+            binding.categoryOverlay.isVisible = false
+        }
+
+        binding.categoryPanel.setOnClickListener {
+            // Keep taps inside the panel from closing it before the category row handles them.
+        }
+
+        binding.categoryMusic.setOnClickListener { submitCategorySearch("מוזיקה") }
+        binding.categoryGames.setOnClickListener { submitCategorySearch("משחקים") }
+        binding.categoryNews.setOnClickListener { submitCategorySearch("חדשות") }
+        binding.categorySports.setOnClickListener { submitCategorySearch("ספורט") }
+        binding.categoryPodcasts.setOnClickListener { submitCategorySearch("פודקאסטים") }
+    }
+
+    private fun startVoiceSearch() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("he", "IL").toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.home_start_search_hint))
+        }
+
+        runCatching {
+            speechLauncher.launch(intent)
+        }.onFailure {
+            Snackbar.make(
+                binding.root,
+                R.string.home_voice_search_unavailable,
+                Snackbar.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun submitCategorySearch(query: String) {
+        binding.categoryOverlay.isVisible = false
+        submitSearch(query)
+    }
+
+    private fun submitSearch(rawQuery: String) {
+        val query = rawQuery.trim()
+        if (query.isEmpty()) return
+
+        binding.starterSearchInput.setText(query)
+        addSearchQueryToHistory(query)
+        findNavController().navigate(NavDirections.showSearchResults(query))
+    }
+
+    private fun addSearchQueryToHistory(query: String) {
+        val searchHistoryEnabled =
+            PreferenceHelper.getBoolean(PreferenceKeys.SEARCH_HISTORY_TOGGLE, true)
+        if (!searchHistoryEnabled) return
+
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            DatabaseHelper.addToSearchHistory(SearchHistoryItem(query))
+        }
+    }
+
+    private fun hasHomeContent(): Boolean {
+        val hasFeed = !homeViewModel.feed.value.isNullOrEmpty()
+        val hasContinueWatching = !homeViewModel.continueWatching.value.isNullOrEmpty()
+        return hasFeed || hasContinueWatching
     }
 
     private fun makeVisible(vararg views: View) {
