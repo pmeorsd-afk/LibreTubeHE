@@ -611,4 +611,7 @@
     <string name="category_news">News</string>
     <string name="category_sports">Sports</string>
     <string name="category_podcasts">Podcasts</string>
+    <string name="subscriptions_today">Today</string>
+    <string name="subscriptions_videos">Videos</string>
+    <string name="subscriptions_shorts">Shorts</string>
 </resources>

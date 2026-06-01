@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.github.libretube.NavDirections
 import com.github.libretube.R
@@ -46,7 +47,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private val homeViewModel: HomeViewModel by activityViewModels()
     private val subscriptionsViewModel: SubscriptionsViewModel by activityViewModels()
 
-    private val feedAdapter = VideoCardsAdapter(columnWidthDp = 250f)
+    private val feedAdapter = VideoCardsAdapter()
     private val watchingAdapter = VideoCardsAdapter(columnWidthDp = 250f)
     private val bookmarkAdapter = CarouselPlaylistAdapter()
     private val playlistAdapter = CarouselPlaylistAdapter()
@@ -81,6 +82,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         playlistsSnapHelper.attachToRecyclerView(binding.playlistsRV)
 
         binding.featuredRV.adapter = feedAdapter
+        binding.featuredRV.layoutManager = GridLayoutManager(requireContext(), HOME_GRID_COLUMNS)
         binding.bookmarksRV.adapter = bookmarkAdapter
         binding.playlistsRV.adapter = playlistAdapter
         binding.playlistsRV.adapter?.registerAdapterDataObserver(object :
@@ -136,6 +138,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
 
         setupStarterHome()
+        setupHomeCategories()
     }
 
     override fun onResume() {
@@ -174,13 +177,15 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         if (streamItems.isEmpty()) {
             binding.featuredRV.isGone = true
             binding.featuredTV.isGone = true
+            binding.homeCategoryContainer.isGone = true
             feedAdapter.submitList(emptyList())
             updateStarterVisibility()
             return
         }
 
-        makeVisible(binding.featuredRV, binding.featuredTV)
-        val feedVideos = streamItems.take(40)
+        binding.featuredTV.isGone = true
+        makeVisible(binding.featuredRV, binding.homeCategoryContainer)
+        val feedVideos = streamItems.take(HOME_FEED_VISIBLE_LIMIT)
 
         feedAdapter.submitList(feedVideos)
         updateStarterVisibility()
@@ -214,16 +219,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     private fun showContinueWatching(unwatchedVideos: List<StreamItem>?) {
         if (unwatchedVideos == null) return
-        if (unwatchedVideos.isEmpty()) {
-            binding.watchingRV.isGone = true
-            binding.watchingTV.isGone = true
-            watchingAdapter.submitList(emptyList())
-            updateStarterVisibility()
-            return
-        }
-
-        makeVisible(binding.watchingRV, binding.watchingTV)
-        watchingAdapter.submitList(unwatchedVideos)
+        binding.watchingRV.isGone = true
+        binding.watchingTV.isGone = true
+        watchingAdapter.submitList(emptyList())
         updateStarterVisibility()
     }
 
@@ -333,13 +331,24 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         binding.categoryPodcasts.setOnClickListener { submitCategorySearch("פודקאסטים") }
     }
 
+    private fun setupHomeCategories() {
+        binding.homeChipAll.setOnClickListener {
+            binding.homeChipAll.isChecked = true
+        }
+        binding.homeChipPodcasts.setOnClickListener { submitCategorySearch("פודקאסטים") }
+        binding.homeChipNews.setOnClickListener { submitCategorySearch("חדשות") }
+        binding.homeChipMusic.setOnClickListener { submitCategorySearch("מוזיקה") }
+        binding.homeChipGames.setOnClickListener { submitCategorySearch("משחקים") }
+        binding.homeChipSports.setOnClickListener { submitCategorySearch("ספורט") }
+    }
+
     private fun startVoiceSearch() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
             )
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("he", "IL").toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.forLanguageTag("he-IL").toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.home_start_search_hint))
         }
 
@@ -380,11 +389,15 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     private fun hasHomeContent(): Boolean {
         val hasFeed = !homeViewModel.feed.value.isNullOrEmpty()
-        val hasContinueWatching = !homeViewModel.continueWatching.value.isNullOrEmpty()
-        return hasFeed || hasContinueWatching
+        return hasFeed
     }
 
     private fun makeVisible(vararg views: View) {
         views.forEach { it.isVisible = true }
+    }
+
+    private companion object {
+        const val HOME_GRID_COLUMNS = 2
+        const val HOME_FEED_VISIBLE_LIMIT = 80
     }
 }

@@ -143,7 +143,7 @@ class HomeViewModel : ViewModel() {
 
     companion object {
         private const val UNUSUAL_LOAD_TIME_MS = 10000L
-        private const val HOME_FEED_LIMIT = 40
+        private const val HOME_FEED_LIMIT = 80
         private const val RELATED_SEED_LIMIT = 6
         private const val RELATED_REQUEST_TIMEOUT_MS = 6000L
     }

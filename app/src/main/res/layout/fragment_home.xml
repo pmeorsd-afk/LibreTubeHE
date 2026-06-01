@@ -25,6 +25,58 @@
                 android:orientation="vertical"
                 android:paddingBottom="10dp">
 
+                <HorizontalScrollView
+                    android:id="@+id/home_category_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="4dp"
+                    android:scrollbars="none"
+                    android:visibility="gone">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/home_category_chips"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:singleLine="true"
+                        app:singleSelection="true">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/home_chip_all"
+                            style="@style/ElevatedFilterChip"
+                            android:checked="true"
+                            android:text="@string/all" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/home_chip_podcasts"
+                            style="@style/ElevatedFilterChip"
+                            android:text="@string/category_podcasts" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/home_chip_news"
+                            style="@style/ElevatedFilterChip"
+                            android:text="@string/category_news" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/home_chip_music"
+                            style="@style/ElevatedFilterChip"
+                            android:text="@string/category_music" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/home_chip_games"
+                            style="@style/ElevatedFilterChip"
+                            android:text="@string/category_games" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/home_chip_sports"
+                            style="@style/ElevatedFilterChip"
+                            android:text="@string/category_sports" />
+
+                    </com.google.android.material.chip.ChipGroup>
+
+                </HorizontalScrollView>
+
                 <LinearLayout
                     android:id="@+id/featuredTV"
                     android:layout_width="match_parent"
@@ -46,9 +98,10 @@
                     android:layout_height="wrap_content"
                     android:clipToPadding="false"
                     android:nestedScrollingEnabled="false"
-                    android:orientation="horizontal"
+                    android:paddingHorizontal="6dp"
                     android:visibility="gone"
-                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                    app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                    app:spanCount="2"
                     tools:visibility="visible" />
 
                 <LinearLayout

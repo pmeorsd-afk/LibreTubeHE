@@ -595,4 +595,7 @@
     <string name="category_news">חדשות</string>
     <string name="category_sports">ספורט</string>
     <string name="category_podcasts">פודקאסטים</string>
+    <string name="subscriptions_today">היום</string>
+    <string name="subscriptions_videos">סרטונים</string>
+    <string name="subscriptions_shorts">Shorts</string>
 </resources>

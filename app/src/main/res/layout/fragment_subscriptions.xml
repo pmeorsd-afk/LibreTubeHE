@@ -67,6 +67,19 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
 
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/subscriptions_channels"
+                            android:layout_width="match_parent"
+                            android:layout_height="82dp"
+                            android:clipToPadding="false"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="10dp"
+                            android:visibility="gone"
+                            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                            tools:itemCount="8"
+                            tools:listitem="@layout/subscription_avatar_row"
+                            tools:visibility="visible" />
+
                         <com.google.android.material.button.MaterialButtonGroup
                             style="@style/Widget.Material3.MaterialSplitButton"
                             android:layout_width="match_parent"
@@ -98,6 +111,47 @@
                                 app:icon="@drawable/ic_filter_sort" />
 
                         </com.google.android.material.button.MaterialButtonGroup>
+
+                        <HorizontalScrollView
+                            android:id="@+id/subs_content_filter_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginTop="4dp"
+                            android:scrollbars="none">
+
+                            <com.google.android.material.chip.ChipGroup
+                                android:id="@+id/subs_content_filter_group"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                app:checkedChip="@id/subs_chip_all"
+                                app:selectionRequired="true"
+                                app:singleLine="true"
+                                app:singleSelection="true">
+
+                                <com.google.android.material.chip.Chip
+                                    android:id="@+id/subs_chip_all"
+                                    style="@style/ElevatedFilterChip"
+                                    android:text="@string/all" />
+
+                                <com.google.android.material.chip.Chip
+                                    android:id="@+id/subs_chip_today"
+                                    style="@style/ElevatedFilterChip"
+                                    android:text="@string/subscriptions_today" />
+
+                                <com.google.android.material.chip.Chip
+                                    android:id="@+id/subs_chip_videos"
+                                    style="@style/ElevatedFilterChip"
+                                    android:text="@string/subscriptions_videos" />
+
+                                <com.google.android.material.chip.Chip
+                                    android:id="@+id/subs_chip_shorts"
+                                    style="@style/ElevatedFilterChip"
+                                    android:text="@string/subscriptions_shorts" />
+
+                            </com.google.android.material.chip.ChipGroup>
+
+                        </HorizontalScrollView>
 
                         <HorizontalScrollView
                             android:id="@+id/channel_groups_container"

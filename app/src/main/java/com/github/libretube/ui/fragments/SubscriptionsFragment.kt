@@ -11,6 +11,7 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.github.libretube.R
 import com.github.libretube.api.obj.StreamItem
@@ -24,6 +25,7 @@ import com.github.libretube.helpers.NavigationHelper
 import com.github.libretube.helpers.PreferenceHelper
 import com.github.libretube.obj.SelectableOption
 import com.github.libretube.parcelable.PlayerData
+import com.github.libretube.ui.adapters.SubscriptionAvatarAdapter
 import com.github.libretube.ui.adapters.VideoCardsAdapter
 import com.github.libretube.ui.base.DynamicLayoutManagerFragment
 import com.github.libretube.ui.models.EditChannelGroupsModel
@@ -54,6 +56,8 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
     private var isAppBarFullyExpanded = true
 
     private var feedAdapter = VideoCardsAdapter()
+    private val subscriptionsAvatarAdapter = SubscriptionAvatarAdapter()
+    private var selectedContentFilter = ContentFilter.ALL
     private var selectedSortOrder = PreferenceHelper.getInt(PreferenceKeys.FEED_SORT_ORDER, 0)
         set(value) {
             PreferenceHelper.putInt(PreferenceKeys.FEED_SORT_ORDER, value)
@@ -75,7 +79,7 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
         }
 
     override fun setLayoutManagers(gridItems: Int) {
-        _binding?.subFeed?.layoutManager = GridLayoutManager(context, gridItems)
+        _binding?.subFeed?.layoutManager = GridLayoutManager(context, SUBSCRIPTIONS_GRID_COLUMNS)
     }
 
     @SuppressLint("SetTextI18n")
@@ -84,8 +88,15 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
         super.onViewCreated(view, savedInstanceState)
 
         setupSortAndFilter()
+        setupContentFilters()
 
         binding.subFeed.adapter = feedAdapter
+        binding.subscriptionsChannels.adapter = subscriptionsAvatarAdapter
+        binding.subscriptionsChannels.layoutManager = LinearLayoutManager(
+            requireContext(),
+            LinearLayoutManager.HORIZONTAL,
+            false
+        )
 
         // Check if the AppBarLayout is fully expanded
         binding.subscriptionsAppBar.addOnOffsetChangedListener { _, verticalOffset ->
@@ -102,6 +113,10 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
 
         if (viewModel.videoFeed.value == null) {
             viewModel.fetchFeed(requireContext(), forceRefresh = false)
+        }
+
+        if (viewModel.subscriptions.value == null) {
+            viewModel.fetchSubscriptions(requireContext())
         }
 
         // only restore the previous state (i.e. scroll position) the first time the feed is shown
@@ -160,6 +175,12 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
                 .show(childFragmentManager)
         }
 
+        viewModel.subscriptions.observe(viewLifecycleOwner) { subscriptions ->
+            val channels = subscriptions.orEmpty()
+            subscriptionsAvatarAdapter.submitList(channels)
+            binding.subscriptionsChannels.isVisible = channels.isNotEmpty()
+        }
+
         binding.channelGroups.setOnCheckedStateChangeListener { group, _ ->
             selectedFilterGroup = group.children.indexOfFirst { it.id == group.checkedChipId } - 1 // 0th index is "all" button
 
@@ -214,6 +235,18 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
                     )
                 }
                 .show(childFragmentManager)
+        }
+    }
+
+    private fun setupContentFilters() {
+        binding.subsContentFilterGroup.setOnCheckedStateChangeListener { _, checkedIds ->
+            selectedContentFilter = when (checkedIds.firstOrNull()) {
+                R.id.subs_chip_today -> ContentFilter.TODAY
+                R.id.subs_chip_videos -> ContentFilter.VIDEOS
+                R.id.subs_chip_shorts -> ContentFilter.SHORTS
+                else -> ContentFilter.ALL
+            }
+            lifecycleScope.launch { showFeed(restoreScrollState = false) }
         }
     }
 
@@ -329,6 +362,7 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
 
         val feed = videoFeed
             .filterByGroup(selectedFilterGroup)
+            .filterByContent()
             .let {
                 DatabaseHelper.filterByStreamTypeAndWatchPosition(it, hideWatched, showUpcoming)
             }
@@ -370,6 +404,18 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
         }
     }
 
+    private fun List<StreamItem>.filterByContent(): List<StreamItem> {
+        val now = System.currentTimeMillis()
+        val todayCutoff = now - TODAY_WINDOW_MS
+
+        return when (selectedContentFilter) {
+            ContentFilter.ALL -> this
+            ContentFilter.TODAY -> filter { it.uploaded >= todayCutoff && it.uploaded <= now }
+            ContentFilter.VIDEOS -> filter { !it.isShort && !it.isLive }
+            ContentFilter.SHORTS -> filter { it.isShort }
+        }
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         // manually restore the recyclerview state after rotation due to https://github.com/material-components/material-components-android/issues/3473
@@ -378,5 +424,17 @@ class SubscriptionsFragment : DynamicLayoutManagerFragment(R.layout.fragment_sub
 
     fun removeItem(videoId: String) {
         feedAdapter.removeItemById(videoId)
+    }
+
+    private enum class ContentFilter {
+        ALL,
+        TODAY,
+        VIDEOS,
+        SHORTS
+    }
+
+    private companion object {
+        const val SUBSCRIPTIONS_GRID_COLUMNS = 2
+        const val TODAY_WINDOW_MS = 24 * 60 * 60 * 1000L
     }
 }
