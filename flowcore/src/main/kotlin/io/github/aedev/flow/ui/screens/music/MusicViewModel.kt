@@ -74,15 +74,7 @@ class MusicViewModel @Inject constructor(
                 if (activeTrack != null && !activeTrack.videoId.isNullOrBlank()) {
                     if (activeTrack.videoId != lastTrackId) {
                         lastTrackId = activeTrack.videoId
-                        try {
-                            val related = YouTubeMusicService.getRelatedMusic(activeTrack.videoId, 24, audioOnly = true)
-                                .audioMusicOnly()
-                            if (related.isNotEmpty()) {
-                                _uiState.update { it.copy(forYouTracks = related) }
-                            }
-                        } catch (e: Exception) {
-                            Log.e("MusicViewModel", "Error updating dynamic Quick Picks", e)
-                        }
+                        updateRecommendationsForTrack(activeTrack)
                     }
                 }
             }
@@ -149,6 +141,16 @@ class MusicViewModel @Inject constructor(
                     allSongs = if (it.selectedFilter == null) trend else it.allSongs,
                     isLoading = false
                 ) }
+            }
+        }
+
+        // 1b. FIRST RUN: show Israeli music while there is no personal listening history yet.
+        viewModelScope.launch(PerformanceDispatcher.networkIO) {
+            val hasHistory = withContext(PerformanceDispatcher.diskIO) {
+                (playlistRepository.history.firstOrNull() ?: emptyList()).isNotEmpty()
+            }
+            if (!hasHistory) {
+                loadIsraeliStarterMusic()
             }
         }
 
@@ -546,6 +548,78 @@ class MusicViewModel @Inject constructor(
             if (similarSections.isNotEmpty()) {
                 _uiState.update { it.copy(similarToSections = similarSections) }
             }
+        }
+    }
+
+    private suspend fun loadIsraeliStarterMusic() {
+        try {
+            val tracks = supervisorScope {
+                ISRAELI_STARTER_QUERIES.map { query ->
+                    async(PerformanceDispatcher.networkIO) {
+                        try {
+                            YouTubeMusicService.searchMusic(query, 12)
+                        } catch (e: Exception) {
+                            emptyList()
+                        }
+                    }
+                }.awaitAll()
+                    .flatten()
+                    .audioMusicOnly()
+                    .distinctBy { it.videoId }
+                    .take(36)
+            }
+
+            if (tracks.isNotEmpty()) {
+                _uiState.update { state ->
+                    val shouldReplaceMainList = state.history.isEmpty() && state.selectedFilter == null
+                    state.copy(
+                        forYouTracks = state.forYouTracks.ifEmpty { tracks.take(24) },
+                        recommendedTracks = state.recommendedTracks.ifEmpty {
+                            tracks.drop(6).take(18).ifEmpty { tracks.take(18) }
+                        },
+                        trendingSongs = if (state.trendingSongs.isEmpty()) tracks else state.trendingSongs,
+                        allSongs = if (shouldReplaceMainList || state.allSongs.isEmpty()) tracks else state.allSongs,
+                        isLoading = false
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MusicViewModel", "Error loading Israeli starter music", e)
+        }
+    }
+
+    private suspend fun updateRecommendationsForTrack(track: MusicTrack) {
+        try {
+            val related = YouTubeMusicService.getRelatedMusic(track.videoId, 36, audioOnly = true)
+                .audioMusicOnly()
+                .filter { it.videoId != track.videoId }
+                .distinctBy { it.videoId }
+
+            if (related.isEmpty()) return
+
+            val similarSection = MusicSection(
+                title = track.title,
+                label = context.getString(R.string.similar_to),
+                thumbnailUrl = track.thumbnailUrl,
+                seedId = track.videoId,
+                isArtistSeed = false,
+                tracks = related.take(16)
+            )
+
+            _uiState.update { state ->
+                val otherSimilarSections = state.similarToSections
+                    .filterNot { it.seedId == track.videoId || it.title == track.title }
+                    .take(4)
+
+                state.copy(
+                    forYouTracks = related.take(24),
+                    recommendedTracks = related.drop(6).take(18).ifEmpty { related.take(18) },
+                    allSongs = if (state.selectedFilter == null || state.allSongs.isEmpty()) related.take(30) else state.allSongs,
+                    similarToSections = listOf(similarSection) + otherSimilarSections
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("MusicViewModel", "Error updating dynamic music recommendations", e)
         }
     }
 
@@ -1016,6 +1090,15 @@ class MusicViewModel @Inject constructor(
         } catch (e: Exception) {
             Log.e("MusicViewModel", "Error in loadDailyDiscover", e)
         }
+    }
+
+    private companion object {
+        val ISRAELI_STARTER_QUERIES = listOf(
+            "להיטים ישראלים 2026",
+            "מוזיקה ישראלית חדשה",
+            "שירים ישראלים פופ",
+            "גלגלצ להיטים ישראלים"
+        )
     }
 }
 
