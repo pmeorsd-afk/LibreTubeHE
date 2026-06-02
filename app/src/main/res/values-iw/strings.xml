@@ -591,6 +591,7 @@
     <string name="home_voice_search">חיפוש קולי</string>
     <string name="home_voice_search_unavailable">חיפוש קולי לא זמין במכשיר הזה.</string>
     <string name="category_music">מוזיקה</string>
+    <string name="libre_music" translatable="false">LibreMusic</string>
     <string name="category_games">משחקים</string>
     <string name="category_news">חדשות</string>
     <string name="category_sports">ספורט</string>

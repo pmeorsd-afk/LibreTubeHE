@@ -313,18 +313,18 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
 
         binding.starterCategory.setOnClickListener {
-            binding.categoryOverlay.isVisible = true
+            openCategoryPanel()
         }
 
         binding.categoryOverlay.setOnClickListener {
-            binding.categoryOverlay.isVisible = false
+            closeCategoryPanel()
         }
 
         binding.categoryPanel.setOnClickListener {
             // Keep taps inside the panel from closing it before the category row handles them.
         }
 
-        binding.categoryMusic.setOnClickListener { submitCategorySearch("מוזיקה") }
+        binding.categoryMusic.setOnClickListener { openLibreMusic() }
         binding.categoryGames.setOnClickListener { submitCategorySearch("משחקים") }
         binding.categoryNews.setOnClickListener { submitCategorySearch("חדשות") }
         binding.categorySports.setOnClickListener { submitCategorySearch("ספורט") }
@@ -332,6 +332,10 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
 
     private fun setupHomeCategories() {
+        binding.homeCategoryCompass.setOnClickListener {
+            openCategoryPanel()
+        }
+
         binding.homeChipAll.setOnClickListener {
             binding.homeChipAll.isChecked = true
         }
@@ -364,8 +368,67 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
 
     private fun submitCategorySearch(query: String) {
-        binding.categoryOverlay.isVisible = false
+        closeCategoryPanel(animate = false)
         submitSearch(query)
+    }
+
+    private fun openLibreMusic() {
+        closeCategoryPanel(animate = false)
+        findNavController().navigate(R.id.musicFragment)
+    }
+
+    private fun openCategoryPanel() {
+        val panel = binding.categoryPanel
+        binding.categoryOverlay.apply {
+            alpha = 0f
+            isVisible = true
+        }
+
+        panel.animate().cancel()
+        binding.categoryOverlay.animate().cancel()
+        panel.post {
+            val panelWidth = panel.width.takeIf { it > 0 } ?: return@post
+            panel.translationX = panelWidth.toFloat()
+            binding.categoryOverlay.animate()
+                .alpha(1f)
+                .setDuration(CATEGORY_PANEL_ANIMATION_MS)
+                .start()
+            panel.animate()
+                .translationX(0f)
+                .setDuration(CATEGORY_PANEL_ANIMATION_MS)
+                .start()
+        }
+    }
+
+    private fun closeCategoryPanel(animate: Boolean = true) {
+        if (!binding.categoryOverlay.isVisible) return
+
+        val panel = binding.categoryPanel
+        panel.animate().cancel()
+        binding.categoryOverlay.animate().cancel()
+
+        if (!animate) {
+            panel.translationX = 0f
+            binding.categoryOverlay.alpha = 1f
+            binding.categoryOverlay.isGone = true
+            return
+        }
+
+        val panelWidth = panel.width.takeIf { it > 0 } ?: CATEGORY_PANEL_FALLBACK_WIDTH_PX
+        binding.categoryOverlay.animate()
+            .alpha(0f)
+            .setDuration(CATEGORY_PANEL_ANIMATION_MS)
+            .start()
+        panel.animate()
+            .translationX(panelWidth.toFloat())
+            .setDuration(CATEGORY_PANEL_ANIMATION_MS)
+            .withEndAction {
+                val binding = _binding ?: return@withEndAction
+                binding.categoryPanel.translationX = 0f
+                binding.categoryOverlay.alpha = 1f
+                binding.categoryOverlay.isGone = true
+            }
+            .start()
     }
 
     private fun submitSearch(rawQuery: String) {
@@ -399,5 +462,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private companion object {
         const val HOME_GRID_COLUMNS = 2
         const val HOME_FEED_VISIBLE_LIMIT = 80
+        const val CATEGORY_PANEL_ANIMATION_MS = 180L
+        const val CATEGORY_PANEL_FALLBACK_WIDTH_PX = 900
     }
 }

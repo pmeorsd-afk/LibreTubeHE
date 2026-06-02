@@ -29,6 +29,7 @@
                     android:id="@+id/home_category_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layoutDirection="rtl"
                     android:paddingHorizontal="12dp"
                     android:paddingTop="6dp"
                     android:paddingBottom="4dp"
@@ -41,6 +42,15 @@
                         android:layout_height="wrap_content"
                         app:singleLine="true"
                         app:singleSelection="true">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/home_category_compass"
+                            style="?materialIconButtonFilledTonalStyle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="@string/category"
+                            android:tooltipText="@string/category"
+                            app:icon="@drawable/ic_compass" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/home_chip_all"
@@ -419,45 +429,21 @@
         android:id="@+id/category_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clickable="true"
+        android:focusable="true"
         android:background="#33000000"
         android:visibility="gone">
 
         <LinearLayout
             android:id="@+id/category_panel"
-            android:layout_width="230dp"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end|top"
+            android:layout_width="300dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="right|top"
             android:layoutDirection="rtl"
             android:background="@drawable/bg_home_category_panel"
             android:elevation="12dp"
             android:orientation="vertical"
-            android:paddingVertical="18dp">
-
-            <LinearLayout
-                android:id="@+id/category_music"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:background="?selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="20dp">
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/music_flat_symbol" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="18dp"
-                    android:layout_weight="1"
-                    android:text="@string/category_music"
-                    android:textColor="?android:textColorPrimary"
-                    android:textSize="16sp" />
-            </LinearLayout>
+            android:paddingTop="24dp">
 
             <LinearLayout
                 android:id="@+id/category_games"
@@ -559,6 +545,37 @@
                     android:layout_marginEnd="18dp"
                     android:layout_weight="1"
                     android:text="@string/category_podcasts"
+                    android:textColor="?android:textColorPrimary"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <LinearLayout
+                android:id="@+id/category_music"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="?selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="20dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/music_flat_symbol" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="18dp"
+                    android:layout_weight="1"
+                    android:text="@string/libre_music"
                     android:textColor="?android:textColorPrimary"
                     android:textSize="16sp" />
             </LinearLayout>

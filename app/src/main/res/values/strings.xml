@@ -607,6 +607,7 @@
     <string name="home_voice_search">Voice search</string>
     <string name="home_voice_search_unavailable">Voice search is not available on this device.</string>
     <string name="category_music">Music</string>
+    <string name="libre_music" translatable="false">LibreMusic</string>
     <string name="category_games">Gaming</string>
     <string name="category_news">News</string>
     <string name="category_sports">Sports</string>
