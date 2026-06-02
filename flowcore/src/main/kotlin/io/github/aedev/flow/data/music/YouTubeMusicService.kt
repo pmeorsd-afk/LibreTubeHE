@@ -332,10 +332,10 @@ object YouTubeMusicService {
         try {
             if (playlistId.startsWith("MPREb_") || playlistId.startsWith("FEmusic_library_privately_owned_release_")) {
                 val album = io.github.aedev.flow.data.newmusic.InnertubeMusicService.fetchAlbum(playlistId)
-                if (album != null) return@withContext album
+                if (album != null) return@withContext album.withFallbackTracks()
             } else {
                 val playlist = io.github.aedev.flow.data.newmusic.InnertubeMusicService.fetchPlaylistDetails(playlistId)
-                if (playlist != null) return@withContext playlist
+                if (playlist != null) return@withContext playlist.withFallbackTracks()
             }
         } catch (e: Exception) {
             Log.e("YouTubeMusicService", "Innertube fetch failed for $playlistId, falling back to NewPipe", e)
@@ -552,7 +552,7 @@ object YouTubeMusicService {
             // Priority: Innertube Data (Rich Metadata)
             val innertubeDetails = io.github.aedev.flow.data.newmusic.InnertubeMusicService.fetchArtistDetails(channelId)
             if (innertubeDetails != null) {
-                return@withContext innertubeDetails
+                return@withContext innertubeDetails.withFallbackTopTracks()
             }
             
             // Fallback: NewPipe Strategy
@@ -588,6 +588,10 @@ object YouTubeMusicService {
                 .filter { isMusicContent(it) }
                 .mapNotNull { convertToMusicTrack(it) }
                 .take(20)
+
+            val topTracks = relatedItems.ifEmpty {
+                searchMusic("$name שירים", 20)
+            }
             
             // Fetch albums (playlists)
             val albums = try {
@@ -603,13 +607,50 @@ object YouTubeMusicService {
                 subscriberCount = subscriberCount,
                 description = description,
                 bannerUrl = banner,
-                topTracks = relatedItems,
+                topTracks = topTracks,
                 albums = albums
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching artist details for $channelId", e)
             null
         }
+    }
+
+    private suspend fun io.github.aedev.flow.ui.screens.music.PlaylistDetails.withFallbackTracks(): io.github.aedev.flow.ui.screens.music.PlaylistDetails {
+        if (tracks.isNotEmpty()) return this
+
+        val fallbackQuery = listOf(title, author)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+            .ifBlank { return this }
+
+        val fallbackTracks = searchMusic(fallbackQuery, 30)
+        if (fallbackTracks.isEmpty()) return this
+
+        return copy(
+            trackCount = fallbackTracks.size,
+            durationText = formatTotalDuration(fallbackTracks.sumOf { it.duration }),
+            tracks = fallbackTracks
+        )
+    }
+
+    private suspend fun io.github.aedev.flow.ui.screens.music.ArtistDetails.withFallbackTopTracks(): io.github.aedev.flow.ui.screens.music.ArtistDetails {
+        if (topTracks.isNotEmpty()) return this
+
+        val directTracks = videos.takeIf { it.isNotEmpty() } ?: emptyList()
+        val fallbackTracks = directTracks.ifEmpty {
+            val queries = listOf("$name שירים", "$name songs", "$name official audio")
+            queries.firstNotNullOfOrNull { query ->
+                searchMusic(query, 20).takeIf { it.isNotEmpty() }
+            }.orEmpty()
+        }
+
+        if (fallbackTracks.isEmpty()) return this
+
+        return copy(
+            topTracks = fallbackTracks,
+            videos = videos.ifEmpty { fallbackTracks }
+        )
     }
     
     /**
