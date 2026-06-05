@@ -181,6 +181,7 @@ dependencies {
     /* Coil */
     coreLibraryDesugaring(libs.desugaring)
     implementation(libs.coil)
+    implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
 
     /* Room */

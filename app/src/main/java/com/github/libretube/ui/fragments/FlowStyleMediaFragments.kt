@@ -7,25 +7,49 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navArgument
+import coil3.compose.AsyncImage
 import com.github.libretube.R
 import com.github.libretube.helpers.NavigationHelper
 import com.github.libretube.parcelable.PlayerData
@@ -151,10 +175,11 @@ class MusicFragment : FlowChromeFragment() {
             }
 
             FlowTheme(themeMode = ThemeMode.DARK) {
-                NavHost(
-                    navController = navController,
-                    startDestination = FlowMusicRoutes.HOME
-                ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = FlowMusicRoutes.HOME
+                    ) {
                     composable(FlowMusicRoutes.HOME) {
                         val musicPlayerViewModel: MusicPlayerViewModel = hiltViewModel()
 
@@ -434,7 +459,119 @@ class MusicFragment : FlowChromeFragment() {
                             }
                         )
                     }
+                    }
+
+                    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentRoute = currentBackStackEntry?.destination?.route
+                    val currentTrack by EnhancedMusicPlayerManager.currentTrack.collectAsState()
+                    val playerState by EnhancedMusicPlayerManager.playerState.collectAsState()
+                    val currentPosition by EnhancedMusicPlayerManager.currentPosition.collectAsState()
+
+                    if (currentTrack != null && currentRoute != FlowMusicRoutes.PLAYER) {
+                        val track = currentTrack!!
+                        MusicMiniPlayer(
+                            track = track,
+                            isPlaying = playerState.isPlaying,
+                            currentPosition = currentPosition,
+                            duration = playerState.duration.takeIf { it > 0 }
+                                ?: (track.duration * 1000L).takeIf { it > 0 }
+                                ?: 0L,
+                            onClick = { navController.openPlayerFor(track) },
+                            onPlayPauseClick = { EnhancedMusicPlayerManager.togglePlayPause() },
+                            onNextClick = { EnhancedMusicPlayerManager.playNext() },
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MusicMiniPlayer(
+    track: MusicTrack,
+    isPlaying: Boolean,
+    currentPosition: Long,
+    duration: Long,
+    onClick: () -> Unit,
+    onPlayPauseClick: () -> Unit,
+    onNextClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val progress = if (duration > 0L) {
+        (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.97f))
+            .clickable(onClick = onClick)
+    ) {
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp),
+            color = Color.Red,
+            trackColor = Color.White.copy(alpha = 0.18f)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(66.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = track.thumbnailUrl.ifBlank { track.highResThumbnailUrl },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = track.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = track.artist,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            IconButton(onClick = onPlayPauseClick) {
+                Text(
+                    text = if (isPlaying) "II" else ">",
+                    color = Color.Red,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            IconButton(onClick = onNextClick) {
+                Text(
+                    text = ">|",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
     }
