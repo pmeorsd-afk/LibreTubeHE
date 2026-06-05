@@ -342,12 +342,13 @@ class InnerTube {
         playlistId: String?,
         signatureTimestamp: Int?,
         poToken: String? = null,
+        localeOverride: YouTubeLocale? = null,
     ) = withRetry {
         httpClient.post("player") {
             ytClient(client, setLogin = true)
             setBody(
                 PlayerBody(
-                    context = client.toContext(locale, visitorData, dataSyncId).let {
+                    context = client.toContext(localeOverride ?: locale, visitorData, dataSyncId).let {
                         if (client.isEmbedded) {
                             it.copy(
                                 thirdParty = Context.ThirdParty(

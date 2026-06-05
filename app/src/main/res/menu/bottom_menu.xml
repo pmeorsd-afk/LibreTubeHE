@@ -13,12 +13,12 @@
 
     <item
         android:id="@+id/musicFragment"
-        android:icon="@drawable/ic_youtube_music"
+        android:icon="@drawable/ic_music_note"
         android:title="@string/music" />
 
     <item
         android:id="@+id/shortsFragment"
-        android:icon="@drawable/ic_youtube_shorts"
+        android:icon="@drawable/ic_shorts"
         android:title="@string/shorts" />
 
     <item
