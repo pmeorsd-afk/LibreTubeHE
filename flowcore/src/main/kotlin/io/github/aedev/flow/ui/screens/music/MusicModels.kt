@@ -47,7 +47,8 @@ data class MusicPlaylist(
     val title: String,
     val thumbnailUrl: String,
     val trackCount: Int = 0,
-    val author: String = ""
+    val author: String = "",
+    val authorId: String? = null
 )
 
 data class PlaylistDetails(

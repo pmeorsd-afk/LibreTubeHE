@@ -44,11 +44,11 @@ interface MediaServiceRepository {
 
     companion object {
         val instance: MediaServiceRepository
-            get() = when {
+            get() = KosherMediaServiceRepository(when {
                 PlayerHelper.fullLocalMode -> NewPipeMediaServiceRepository()
                 PlayerHelper.localStreamExtraction -> LocalStreamsExtractionPipedMediaServiceRepository()
                 else -> PipedMediaServiceRepository()
-            }
+            })
     }
 }
 
