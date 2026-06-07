@@ -304,10 +304,6 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             }
         }
 
-        binding.starterTopSearch.setOnClickListener {
-            binding.starterSearchInput.requestFocus()
-        }
-
         binding.starterVoiceSearch.setOnClickListener {
             startVoiceSearch()
         }

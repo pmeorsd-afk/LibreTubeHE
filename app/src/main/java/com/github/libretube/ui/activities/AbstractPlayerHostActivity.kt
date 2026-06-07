@@ -51,12 +51,6 @@ abstract class AbstractPlayerHostActivity: BaseActivity() {
                 true
             }
 
-            R.id.action_help -> {
-                val helpIntent = Intent(this, HelpActivity::class.java)
-                startActivity(helpIntent)
-                true
-            }
-
             R.id.action_donate -> {
                 IntentHelper.openLinkFromHref(
                     this,

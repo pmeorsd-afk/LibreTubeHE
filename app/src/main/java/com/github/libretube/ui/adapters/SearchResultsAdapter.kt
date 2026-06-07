@@ -18,6 +18,8 @@ import com.github.libretube.db.DatabaseHolder
 import com.github.libretube.enums.PlaylistType
 import com.github.libretube.extensions.formatShort
 import com.github.libretube.extensions.toID
+import com.github.libretube.extensions.toPlaylistID
+import com.github.libretube.extensions.toVideoIDFromUrl
 import com.github.libretube.helpers.ImageHelper
 import com.github.libretube.helpers.NavigationHelper
 import com.github.libretube.parcelable.PlayerData
@@ -201,13 +203,24 @@ class SearchResultsAdapter(
             playlistTitle.text = item.name
             playlistDescription.text = item.uploaderName
             root.setOnClickListener {
-                NavigationHelper.navigatePlaylist(root.context, item.url, PlaylistType.PUBLIC)
+                val playlistId = item.url.toPlaylistID()
+                val firstVideoId = item.url.toVideoIDFromUrl()
+
+                if (playlistId.isYouTubeMixId() && firstVideoId != null) {
+                    NavigationHelper.navigateVideo(
+                        root.context,
+                        PlayerData(firstVideoId, playlistId = playlistId)
+                    )
+                } else {
+                    NavigationHelper.navigatePlaylist(root.context, playlistId, PlaylistType.PUBLIC)
+                }
             }
 
             root.setOnLongClickListener {
+                val playlistId = item.url.toPlaylistID()
                 val sheet = PlaylistOptionsBottomSheet()
                 sheet.arguments = bundleOf(
-                    IntentData.playlistId to item.url.toID(),
+                    IntentData.playlistId to playlistId,
                     IntentData.playlistName to item.name.orEmpty(),
                     IntentData.playlistType to PlaylistType.PUBLIC
                 )
@@ -219,4 +232,6 @@ class SearchResultsAdapter(
             }
         }
     }
+
+    private fun String.isYouTubeMixId() = startsWith("RD")
 }

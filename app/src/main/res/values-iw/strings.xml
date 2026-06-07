@@ -26,7 +26,10 @@
     <string name="addToPlaylist">הוספה לפלייליסט</string>
     <string name="success">בוצע.</string>
     <string name="fail">נכשל :(</string>
-    <string name="about">על אודות</string>
+    <string name="about">אודות</string>
+    <string name="rebuilt_by_notice">אפליקציה זו בונתה מחדש
+על ידי - אפליקציות פרוצות לאייפון</string>
+    <string name="telegram_channel">אפליקציות פרוצות לאייפון</string>
     <string name="lightTheme">בהיר</string>
     <string name="subscribers">%1$s מנויים</string>
     <string name="comments">תגובות</string>

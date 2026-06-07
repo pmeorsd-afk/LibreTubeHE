@@ -21,25 +21,27 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/rebuilt_notice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:gravity="center"
+            android:lineSpacingExtra="2dp"
+            android:text="@string/rebuilt_by_notice"
+            android:textColor="?android:textColorPrimary"
+            android:textSize="16sp" />
+
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/donate"
+            android:id="@+id/telegram"
             style="@style/AboutCard">
 
             <androidx.appcompat.widget.AppCompatTextView
                 style="@style/AboutItem"
-                android:text="@string/donate"
+                android:text="@string/telegram_channel"
                 app:drawableStartCompat="@drawable/ic_donate" />
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/website"
-            style="@style/AboutCard">
-
-            <androidx.appcompat.widget.AppCompatTextView
-                style="@style/AboutItem"
-                android:text="@string/website"
-                app:drawableStartCompat="@drawable/ic_region" />
 
         </com.google.android.material.card.MaterialCardView>
 
@@ -51,28 +53,6 @@
                 style="@style/AboutItem"
                 android:text="@string/github"
                 app:drawableStartCompat="@drawable/ic_github" />
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/piped"
-            style="@style/AboutCard">
-
-            <androidx.appcompat.widget.AppCompatTextView
-                style="@style/AboutItem"
-                android:text="@string/piped"
-                app:drawableStartCompat="@drawable/ic_piped" />
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/translate"
-            style="@style/AboutCard">
-
-            <androidx.appcompat.widget.AppCompatTextView
-                style="@style/AboutItem"
-                android:text="@string/translate"
-                app:drawableStartCompat="@drawable/ic_weblate" />
 
         </com.google.android.material.card.MaterialCardView>
 

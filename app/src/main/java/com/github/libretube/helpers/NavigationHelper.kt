@@ -15,6 +15,7 @@ import com.github.libretube.constants.IntentData
 import com.github.libretube.constants.PreferenceKeys
 import com.github.libretube.enums.PlaylistType
 import com.github.libretube.extensions.toID
+import com.github.libretube.extensions.toPlaylistID
 import com.github.libretube.parcelable.PlayerData
 import com.github.libretube.ui.activities.AbstractPlayerHostActivity
 import com.github.libretube.ui.activities.MainActivity
@@ -124,7 +125,7 @@ object NavigationHelper {
 
         val activity = ContextHelper.unwrapActivity<MainActivity>(context)
         activity.navController.navigate(
-            NavDirections.openPlaylist(playlistUrlOrId.toID(), playlistType)
+            NavDirections.openPlaylist(playlistUrlOrId.toPlaylistID(), playlistType)
         )
     }
 

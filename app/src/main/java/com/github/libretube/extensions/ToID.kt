@@ -21,3 +21,25 @@ fun String.toID(): String {
         .removeSuffix("/streams")
         .removeSuffix("/videos")
 }
+
+fun String.toPlaylistID(): String {
+    return Regex("[?&]list=([^&#]+)")
+        .find(this)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?: toID().substringBefore("&")
+}
+
+fun String.toVideoIDFromUrl(): String? {
+    Regex("[?&]v=([^&#]+)")
+        .find(this)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.let { return it }
+
+    return removePrefix(YOUTUBE_FRONTEND_URL)
+        .removePrefix(YOUTUBE_MUSIC_URL)
+        .removePrefix(YOUTUBE_SHORT_URL)
+        .removePrefix("/watch?v=")
+        .takeIf { it.length == 11 && !it.contains("/") && !it.contains("?") && !it.contains("&") }
+}

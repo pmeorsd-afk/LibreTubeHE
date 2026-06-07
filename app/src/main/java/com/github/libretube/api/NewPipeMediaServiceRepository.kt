@@ -150,7 +150,7 @@ fun InfoItem.toContentItem() = when (this) {
     )
 
     is PlaylistInfoItem -> ContentItem(
-        url = url.toID(),
+        url = url,
         type = TYPE_PLAYLIST,
         title = name,
         name = name,
