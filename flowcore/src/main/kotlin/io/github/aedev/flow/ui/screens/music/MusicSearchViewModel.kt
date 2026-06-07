@@ -8,8 +8,6 @@ import io.github.aedev.flow.innertube.YouTube.SearchFilter
 import io.github.aedev.flow.innertube.models.SearchSuggestions
 import io.github.aedev.flow.innertube.models.YTItem
 import io.github.aedev.flow.innertube.pages.SearchSummaryPage
-import io.github.aedev.flow.innertube.pages.SearchSummary
-import io.github.aedev.flow.kosher.KosherContentFilter
 import io.github.aedev.flow.utils.PerformanceDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
@@ -68,10 +66,9 @@ class MusicSearchViewModel @Inject constructor(
             }
             
             result?.onSuccess { suggestions ->
-                val recommended = KosherContentFilter.filterYTItems(suggestions.recommendedItems)
                 _uiState.update { it.copy(
                     suggestions = suggestions.queries,
-                    recommendedItems = recommended
+                    recommendedItems = suggestions.recommendedItems
                 ) }
             }?.onFailure { throwable ->
                 android.util.Log.w("MusicSearchViewModel", "Suggestions failed: ${throwable.message}")
@@ -95,12 +92,11 @@ class MusicSearchViewModel @Inject constructor(
             }
             
             result?.onSuccess { summaryPage ->
-                val filteredPage = summaryPage.filterApprovedItems()
                 _uiState.update { state -> state.copy(
-                    searchSummary = filteredPage,
+                    searchSummary = summaryPage,
                     isLoading = false,
                     isSearching = true,
-                    continuation = filteredPage.continuation
+                    continuation = summaryPage.continuation
                 ) }
             }?.onFailure { throwable ->
                 _uiState.update { state -> state.copy(isLoading = false, error = throwable.message) }
@@ -128,9 +124,8 @@ class MusicSearchViewModel @Inject constructor(
                 }
                 
                 result?.onSuccess { searchResult ->
-                    val filteredItems = KosherContentFilter.filterYTItems(searchResult.items)
                     _uiState.update { state -> state.copy(
-                        filteredResults = filteredItems,
+                        filteredResults = searchResult.items,
                         isLoading = false,
                         continuation = searchResult.continuation
                     ) }
@@ -160,9 +155,8 @@ class MusicSearchViewModel @Inject constructor(
             result?.onSuccess { artistPage ->
                 val songsSection = artistPage.sections.find { it.title.contains("Songs", ignoreCase = true) }
                 val items = songsSection?.items ?: artistPage.sections.firstOrNull()?.items ?: emptyList()
-                val filteredItems = KosherContentFilter.filterYTItems(items)
                 withContext(Dispatchers.Main) {
-                    callback(filteredItems)
+                    callback(items)
                 }
             }
         }
@@ -177,12 +171,11 @@ class MusicSearchViewModel @Inject constructor(
             val result = YouTube.searchContinuation(token)
             
              result.onSuccess { searchResult ->
-                 val filteredItems = KosherContentFilter.filterYTItems(searchResult.items)
                  _uiState.update { state ->
                      if (state.activeFilter == null) {
                          val newSummary = io.github.aedev.flow.innertube.pages.SearchSummary(
                              title = "More results", 
-                             items = filteredItems
+                             items = searchResult.items
                          )
                          state.copy(
                              searchSummary = state.searchSummary?.copy(
@@ -193,7 +186,7 @@ class MusicSearchViewModel @Inject constructor(
                          )
                      } else {
                          state.copy(
-                            filteredResults = state.filteredResults + filteredItems,
+                             filteredResults = state.filteredResults + searchResult.items,
                              continuation = searchResult.continuation,
                              isMoreLoading = false
                          )
@@ -203,16 +196,8 @@ class MusicSearchViewModel @Inject constructor(
                  _uiState.update { it.copy(isMoreLoading = false) }
              }
         }
-     }
+    }
 }
-
-private suspend fun SearchSummaryPage.filterApprovedItems(): SearchSummaryPage =
-    copy(
-        summaries = summaries.mapNotNull { summary ->
-            val items = KosherContentFilter.filterYTItems(summary.items)
-            if (items.isEmpty()) null else SearchSummary(summary.title, items)
-        }
-    )
 
 data class MusicSearchUiState(
     val suggestions: List<String> = emptyList(),

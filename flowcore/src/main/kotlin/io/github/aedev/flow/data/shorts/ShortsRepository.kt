@@ -14,7 +14,6 @@ import io.github.aedev.flow.data.repository.YouTubeRepository
 import io.github.aedev.flow.innertube.YouTube
 import io.github.aedev.flow.innertube.models.YouTubeClient
 import io.github.aedev.flow.innertube.pages.NewPipeExtractor
-import io.github.aedev.flow.kosher.KosherContentFilter
 import io.github.aedev.flow.player.quality.QualityManager
 import io.github.aedev.flow.player.stream.VideoCodecUtils
 import kotlinx.coroutines.CoroutineScope
@@ -122,9 +121,9 @@ class ShortsRepository private constructor(private val context: Context) {
             ) {
                 Log.d(TAG, "♻ Using cached feed (${cached.shorts.size} shorts)")
                 val filtered = cached.copy(shorts = filterWatchedShorts(cached.shorts))
-                if (filtered.shorts.isNotEmpty()) return@withContext filtered.filterApprovedResult()
+                if (filtered.shorts.isNotEmpty()) return@withContext filtered
             }
-            return@withContext fetchDiscoveryFeed().filterApprovedResult()
+            return@withContext fetchDiscoveryFeed()
         }
 
         val rawResult = try {
@@ -139,11 +138,11 @@ class ShortsRepository private constructor(private val context: Context) {
             val filtered = rawResult.copy(shorts = filterWatchedShorts(rawResult.shorts))
             filtered.shorts.forEach { shortsCache.put(it.id, it) }
             markAsShown(filtered.shorts.map { it.id })
-            return@withContext filtered.filterApprovedResult()
+            return@withContext filtered
         }
 
         Log.w(TAG, "InnerTube seed failed — falling back to discovery feed")
-        fetchDiscoveryFeed().filterApprovedResult()
+        fetchDiscoveryFeed()
     }
 
     private suspend fun fetchDiscoveryFeed(): ShortsSequenceResult {
@@ -215,7 +214,7 @@ class ShortsRepository private constructor(private val context: Context) {
                 }
             }
 
-            return earlyResult.filterApprovedResult()
+            return earlyResult
             }
         }
 
@@ -240,7 +239,7 @@ class ShortsRepository private constructor(private val context: Context) {
                 markAsShown(result.shorts.map { it.id })
                 cachedInitialFeed = result
                 cachedFeedTimestamp = System.currentTimeMillis()
-                return result.filterApprovedResult()
+                return result
             }
             Log.e(TAG, "✗ All Shorts sources failed — returning empty")
             return ShortsSequenceResult(emptyList(), null)
@@ -274,7 +273,7 @@ class ShortsRepository private constructor(private val context: Context) {
             }
         }
 
-        return result.filterApprovedResult()
+        return result
     }
     
     /**
@@ -356,7 +355,7 @@ class ShortsRepository private constructor(private val context: Context) {
                 Log.w(TAG, "Failed to record seen Shorts in loadMore", e)
             }
 
-                return@withContext enrichedResult.filterApprovedResult()
+            return@withContext enrichedResult
         }
 
         // Fallback: fresh NewPipe fetch
@@ -370,7 +369,7 @@ class ShortsRepository private constructor(private val context: Context) {
                 val rankedFallback = fallback.copy(shorts = reRanked)
                 rankedFallback.shorts.forEach { shortsCache.put(it.id, it) }
                 markAsShown(rankedFallback.shorts.map { it.id })
-                return@withContext rankedFallback.filterApprovedResult()
+                return@withContext rankedFallback
             }
         } catch (e: Exception) {
             Log.e(TAG, "NewPipe pagination fallback failed", e)
@@ -489,11 +488,6 @@ class ShortsRepository private constructor(private val context: Context) {
             null
         }
         
-        if (streamInfo != null && !KosherContentFilter.isAllowedChannel(streamInfo.uploaderUrl)) {
-            Log.w(TAG, "Blocked unapproved Short stream: $videoId")
-            return@withContext null
-        }
-
         if (streamInfo != null) {
             streamInfoCache.put(videoId, streamInfo)
             Log.d(TAG, "✓ Resolved streams for $videoId")
@@ -584,12 +578,6 @@ class ShortsRepository private constructor(private val context: Context) {
                     ?: YouTube.player(videoId, client = YouTubeClient.ANDROID).getOrNull()
             } ?: return null
 
-            val channelId = response.videoDetails?.channelId
-            if (!KosherContentFilter.isAllowedChannel(channelId)) {
-                Log.w(TAG, "Blocked unapproved fast Short stream: $videoId")
-                return null
-            }
-
             val streamingData = response.streamingData ?: return null
             val allFormats = streamingData.formats.orEmpty() + streamingData.adaptiveFormats
             val videoFormats = allFormats
@@ -661,7 +649,7 @@ class ShortsRepository private constructor(private val context: Context) {
     suspend fun getHomeFeedShorts(): List<ShortVideo> = withContext(Dispatchers.IO) {
         try {
             val result = getShortsFeed()
-            KosherContentFilter.filterShorts(orderShortsNewestFirst(filterWatchedShorts(result.shorts))).take(20)
+            orderShortsNewestFirst(filterWatchedShorts(result.shorts)).take(20)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get home feed shorts", e)
             emptyList()
@@ -684,7 +672,7 @@ class ShortsRepository private constructor(private val context: Context) {
         
         val shorts = page.items.map { it.toShortVideo() }
         
-        return ShortsSequenceResult(shorts, page.continuation).filterApprovedResult()
+        return ShortsSequenceResult(shorts, page.continuation)
     }
     
     // INTERNAL — Metadata Enrichment    
@@ -792,7 +780,7 @@ class ShortsRepository private constructor(private val context: Context) {
             .let { filterWatchedShorts(it) }
             .let { orderShortsNewestFirst(it) }
         
-        return ShortsSequenceResult(shorts, null).filterApprovedResult()
+        return ShortsSequenceResult(shorts, null)
     }
 
     private suspend fun filterWatchedShorts(shorts: List<ShortVideo>): List<ShortVideo> {
@@ -853,11 +841,8 @@ class ShortsRepository private constructor(private val context: Context) {
      */
     suspend fun forceRefresh(): ShortsSequenceResult {
         clearCaches()
-        return getShortsFeed().filterApprovedResult()
+        return getShortsFeed()
     }
-
-    private suspend fun ShortsSequenceResult.filterApprovedResult(): ShortsSequenceResult =
-        copy(shorts = KosherContentFilter.filterShorts(shorts))
 }
 
 data class ShortPlaybackStreams(

@@ -13,7 +13,6 @@ import io.github.aedev.flow.ui.screens.music.PlaylistDetails
 import io.github.aedev.flow.ui.screens.music.MusicPlaylist
 import io.github.aedev.flow.ui.screens.music.ArtistDetails
 import io.github.aedev.flow.innertube.pages.AlbumPage
-import io.github.aedev.flow.kosher.KosherContentFilter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -38,8 +37,7 @@ object InnertubeMusicService {
         try {
             val result = YouTube.home()
             result.getOrNull()?.sections?.flatMap { it.items }
-                ?.mapNotNull { convertToMusicTrack(it) }
-                ?.let { KosherContentFilter.filterTracks(it) } ?: emptyList()
+                ?.mapNotNull { convertToMusicTrack(it) } ?: emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -70,8 +68,7 @@ object InnertubeMusicService {
     suspend fun searchMusic(query: String): List<MusicTrack> = withContext(Dispatchers.IO) {
         try {
             val result = YouTube.search(query, SearchFilter.FILTER_SONG)
-            result.getOrNull()?.items?.mapNotNull { convertToMusicTrack(it) }
-                ?.let { KosherContentFilter.filterTracks(it) } ?: emptyList()
+            result.getOrNull()?.items?.mapNotNull { convertToMusicTrack(it) } ?: emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -109,8 +106,7 @@ object InnertubeMusicService {
         try {
             val result = YouTube.search(query, SearchFilter.FILTER_FEATURED_PLAYLIST)
             result.getOrNull()?.items?.filterIsInstance<io.github.aedev.flow.innertube.models.PlaylistItem>()
-                ?.map { convertPlaylistToMusicPlaylist(it) }
-                ?.let { KosherContentFilter.filterPlaylists(it) } ?: emptyList()
+                ?.map { convertPlaylistToMusicPlaylist(it) } ?: emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -138,7 +134,7 @@ object InnertubeMusicService {
             val result = YouTube.playlist(playlistId)
             val page = result.getOrNull() ?: return@withContext null
             
-            val tracks = KosherContentFilter.filterTracks(page.songs.mapNotNull { convertToMusicTrack(it) })
+            val tracks = page.songs.mapNotNull { convertToMusicTrack(it) }
             
             PlaylistDetails(
                 id = page.playlist.id ?: playlistId,
@@ -166,7 +162,7 @@ object InnertubeMusicService {
             val result = YouTube.album(albumId)
             val page = result.getOrNull() ?: return@withContext null
             
-            val tracks = KosherContentFilter.filterTracks(page.songs.mapNotNull { convertToMusicTrack(it) })
+            val tracks = page.songs.mapNotNull { convertToMusicTrack(it) }
             
             PlaylistDetails(
                 id = page.album.browseId ?: albumId,
@@ -196,8 +192,7 @@ object InnertubeMusicService {
                 val related = YouTube.related(relatedEndpoint).getOrNull()
                 related?.songs
                     ?.filterNot { audioOnly && it.isVideoSong }
-                    ?.mapNotNull { convertToMusicTrack(it) }
-                    ?.let { KosherContentFilter.filterTracks(it) } ?: emptyList()
+                    ?.mapNotNull { convertToMusicTrack(it) } ?: emptyList()
             } else {
                 emptyList()
             }
@@ -214,8 +209,7 @@ object InnertubeMusicService {
         try {
             val result = YouTube.getChartsPage()
             result.getOrNull()?.sections?.flatMap { it.items }
-                ?.mapNotNull { convertToMusicTrack(it) }
-                ?.let { KosherContentFilter.filterTracks(it) } ?: emptyList()
+                ?.mapNotNull { convertToMusicTrack(it) } ?: emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -251,29 +245,29 @@ object InnertubeMusicService {
                 val title = section.title.lowercase()
                 when {
                     title.contains("songs") || title.contains("popular") -> {
-                        topTracks = KosherContentFilter.filterTracks(section.items.filterIsInstance<SongItem>().mapNotNull { convertToMusicTrack(it) })
+                        topTracks = section.items.filterIsInstance<SongItem>().mapNotNull { convertToMusicTrack(it) }
                         topTracksBrowseId = section.moreEndpoint?.browseId
                         topTracksParams = section.moreEndpoint?.params
                     }
                     title.contains("albums") -> {
-                        albums = KosherContentFilter.filterPlaylists(section.items.filterIsInstance<io.github.aedev.flow.innertube.models.AlbumItem>().map { convertAlbumToPlaylist(it) })
+                        albums = section.items.filterIsInstance<io.github.aedev.flow.innertube.models.AlbumItem>().map { convertAlbumToPlaylist(it) }
                         albumsBrowseId = section.moreEndpoint?.browseId
                         albumsParams = section.moreEndpoint?.params
                     }
                     title.contains("singles") || title.contains("ep") -> {
-                        singles = KosherContentFilter.filterPlaylists(section.items.filterIsInstance<io.github.aedev.flow.innertube.models.AlbumItem>().map { convertAlbumToPlaylist(it) })
+                        singles = section.items.filterIsInstance<io.github.aedev.flow.innertube.models.AlbumItem>().map { convertAlbumToPlaylist(it) }
                         singlesBrowseId = section.moreEndpoint?.browseId
                         singlesParams = section.moreEndpoint?.params
                     }
                     title.contains("videos") -> {
                         // Videos are often SongItems or video items in Innertube
-                        videos = KosherContentFilter.filterTracks(section.items.filterIsInstance<SongItem>().mapNotNull { convertToMusicTrack(it) })
+                        videos = section.items.filterIsInstance<SongItem>().mapNotNull { convertToMusicTrack(it) }
                     }
                     title.contains("fans might also like") || title.contains("related") -> {
-                        relatedArtists = KosherContentFilter.filterArtists(section.items.filterIsInstance<io.github.aedev.flow.innertube.models.ArtistItem>().map { convertArtistItemToDetails(it) })
+                        relatedArtists = section.items.filterIsInstance<io.github.aedev.flow.innertube.models.ArtistItem>().map { convertArtistItemToDetails(it) }
                     }
                     title.contains("featured on") || title.contains("playlists") -> {
-                        featuredOn = KosherContentFilter.filterPlaylists(section.items.filterIsInstance<io.github.aedev.flow.innertube.models.PlaylistItem>().map { convertPlaylistToMusicPlaylist(it) })
+                        featuredOn = section.items.filterIsInstance<io.github.aedev.flow.innertube.models.PlaylistItem>().map { convertPlaylistToMusicPlaylist(it) }
                     }
                 }
             }
@@ -313,8 +307,7 @@ object InnertubeMusicService {
         try {
             val result = YouTube.artistItems(io.github.aedev.flow.innertube.models.BrowseEndpoint(browseId, params))
             result.getOrNull()?.items?.filterIsInstance<io.github.aedev.flow.innertube.models.AlbumItem>()
-                ?.map { convertAlbumToPlaylist(it) }
-                ?.let { KosherContentFilter.filterPlaylists(it) } ?: emptyList()
+                ?.map { convertAlbumToPlaylist(it) } ?: emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -329,7 +322,7 @@ object InnertubeMusicService {
             val result = YouTube.playlistContinuation(continuation)
             val page = result.getOrNull() ?: return@withContext emptyList<MusicTrack>() to null
             
-            val tracks = KosherContentFilter.filterTracks(page.songs.mapNotNull { convertToMusicTrack(it) })
+            val tracks = page.songs.mapNotNull { convertToMusicTrack(it) }
             tracks to page.continuation
         } catch (e: Exception) {
             e.printStackTrace()
@@ -358,8 +351,7 @@ object InnertubeMusicService {
     suspend fun fetchQueue(videoIds: List<String>? = null, playlistId: String? = null): List<MusicTrack> = withContext(Dispatchers.IO) {
         try {
             val result = YouTube.queue(videoIds, playlistId)
-            result.getOrNull()?.mapNotNull { convertToMusicTrack(it) }
-                ?.let { KosherContentFilter.filterTracks(it) } ?: emptyList()
+            result.getOrNull()?.mapNotNull { convertToMusicTrack(it) } ?: emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -372,8 +364,7 @@ object InnertubeMusicService {
             title = item.title ?: "",
             thumbnailUrl = item.thumbnail ?: "",
             trackCount = 0, // Not always available in list view
-            author = item.year?.toString() ?: "", // Resusing author field for Year/Subtitle
-            authorId = item.artists?.firstOrNull()?.id
+            author = item.year?.toString() ?: "" // Resusing author field for Year/Subtitle
         )
     }
 
@@ -383,8 +374,7 @@ object InnertubeMusicService {
             title = item.title ?: "",
             thumbnailUrl = item.thumbnail ?: "",
             trackCount = item.songCountText?.filter { it.isDigit() }?.toIntOrNull() ?: 0,
-            author = item.author?.name ?: "",
-            authorId = item.author?.id
+            author = item.author?.name ?: ""
         )
     }
     

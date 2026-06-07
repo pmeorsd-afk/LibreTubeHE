@@ -6,7 +6,6 @@ import io.github.aedev.flow.data.local.PlayerPreferences
 import io.github.aedev.flow.ui.screens.music.MusicTrack
 import io.github.aedev.flow.innertube.YouTube
 import io.github.aedev.flow.innertube.models.SongItem
-import io.github.aedev.flow.kosher.KosherContentFilter
 import io.github.aedev.flow.player.stream.AudioStreamSelector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -101,7 +100,7 @@ object YouTubeMusicService {
             } catch (ignore: Exception) {}
         }
         
-        val result = KosherContentFilter.filterTracks(tracks.distinctBy { it.videoId }).take(limit)
+        val result = tracks.distinctBy { it.videoId }.take(limit)
         Log.d(TAG, "Fetched ${result.size} trending music tracks")
         result
     }
@@ -113,7 +112,7 @@ object YouTubeMusicService {
         try {
             val innertubeResults = io.github.aedev.flow.data.newmusic.InnertubeMusicService.searchMusic("new music releases 2025")
             if (innertubeResults.isNotEmpty()) {
-                return@withContext KosherContentFilter.filterTracks(innertubeResults).take(limit)
+                return@withContext innertubeResults.take(limit)
             }
             
             searchMusic("new music releases 2025", limit)
@@ -132,7 +131,7 @@ object YouTubeMusicService {
             // Try Innertube first
             val innertubeResults = io.github.aedev.flow.data.newmusic.InnertubeMusicService.searchMusic(query)
             if (innertubeResults.isNotEmpty()) {
-                return@withContext KosherContentFilter.filterTracks(innertubeResults).take(limit)
+                return@withContext innertubeResults.take(limit)
             }
         
             val service = ServiceList.YouTube
@@ -155,9 +154,8 @@ object YouTubeMusicService {
                     }
                 }
             
-            val filtered = KosherContentFilter.filterTracks(tracks)
-            Log.d(TAG, "Found ${filtered.size} approved tracks for query: $query")
-            filtered
+            Log.d(TAG, "Found ${tracks.size} tracks for query: $query")
+            tracks
         } catch (e: Exception) {
             Log.e(TAG, "Error searching music", e)
             emptyList()
@@ -175,7 +173,6 @@ object YouTubeMusicService {
             
             searchExtractor.initialPage.items
                 .filterIsInstance<org.schabi.newpipe.extractor.channel.ChannelInfoItem>()
-                .filter { KosherContentFilter.isAllowedChannel(it.url) }
                 .take(limit)
                 .map { item ->
                     val channelId = item.url.substringAfterLast("/")
@@ -223,9 +220,7 @@ object YouTubeMusicService {
         try {
             val service = ServiceList.YouTube
             val url = "https://www.youtube.com/watch?v=$videoId"
-            StreamInfo.getInfo(service, url).takeIf {
-                KosherContentFilter.isAllowedChannel(it.uploaderUrl)
-            }
+            StreamInfo.getInfo(service, url)
         } catch (e: Exception) {
             Log.e(TAG, "Error getting stream info for $videoId", e)
             null
@@ -246,7 +241,6 @@ object YouTubeMusicService {
     suspend fun getBestAudioStream(videoId: String): Pair<org.schabi.newpipe.extractor.stream.AudioStream, Long>? = withContext(Dispatchers.IO) {
         try {
             val streamInfo = getStreamInfo(videoId) ?: return@withContext null
-            if (!KosherContentFilter.isAllowedChannel(streamInfo.uploaderUrl)) return@withContext null
             val preferences = PlayerPreferences(FlowApplication.appContext)
             val preferredAudioLanguage = preferences.preferredAudioLanguage.first()
             val preferredMusicAudioQuality = preferences.musicAudioQuality.first()
@@ -273,7 +267,6 @@ object YouTubeMusicService {
     suspend fun getAudioUrl(videoId: String): String? = withContext(Dispatchers.IO) {
         try {
             val streamInfo = getStreamInfo(videoId)
-            if (!KosherContentFilter.isAllowedChannel(streamInfo?.uploaderUrl)) return@withContext null
             val preferences = PlayerPreferences(FlowApplication.appContext)
             val preferredAudioLanguage = preferences.preferredAudioLanguage.first()
             val preferredMusicAudioQuality = preferences.musicAudioQuality.first()
@@ -298,7 +291,6 @@ object YouTubeMusicService {
     suspend fun getVideoUrl(videoId: String): String? = withContext(Dispatchers.IO) {
         try {
             val streamInfo = getStreamInfo(videoId)
-            if (!KosherContentFilter.isAllowedChannel(streamInfo?.uploaderUrl)) return@withContext null
             // Prefer video streams that have both audio and video if possible, 
             // but usually we want the highest quality video stream
             val videoStream = streamInfo?.videoStreams
@@ -325,7 +317,6 @@ object YouTubeMusicService {
                 .filterIsInstance<StreamInfoItem>()
                 .filter { isMusicContent(it) } // Filter out compilations in playlists
                 .mapNotNull { convertToMusicTrack(it) }
-                .let { KosherContentFilter.filterTracks(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching playlist tracks: $playlistId", e)
             emptyList()
@@ -355,7 +346,7 @@ object YouTubeMusicService {
                 val albumResult = YouTube.album(playlistId)
                 val albumPage = albumResult.getOrNull()
                 if (albumPage != null) {
-                    val tracks = KosherContentFilter.filterTracks(albumPage.songs.mapNotNull { convertSongItemToMusicTrack(it) })
+                    val tracks = albumPage.songs.mapNotNull { convertSongItemToMusicTrack(it) }
                     val totalSeconds = tracks.sumOf { it.duration }
                     val durationText = formatTotalDuration(totalSeconds)
                     
@@ -383,7 +374,6 @@ object YouTubeMusicService {
             val tracks = playlistInfo.relatedItems
                 .filterIsInstance<StreamInfoItem>()
                 .mapNotNull { convertToMusicTrack(it) }
-                .let { KosherContentFilter.filterTracks(it) }
             
             val totalSeconds = tracks.sumOf { it.duration }
             val durationText = formatTotalDuration(totalSeconds)
@@ -413,8 +403,7 @@ object YouTubeMusicService {
      */
     suspend fun fetchPlaylistContinuation(playlistId: String, continuation: String): Pair<List<MusicTrack>, String?> = withContext(Dispatchers.IO) {
         try {
-            val (tracks, next) = io.github.aedev.flow.data.newmusic.InnertubeMusicService.fetchPlaylistContinuation(playlistId, continuation)
-            KosherContentFilter.filterTracks(tracks) to next
+            io.github.aedev.flow.data.newmusic.InnertubeMusicService.fetchPlaylistContinuation(playlistId, continuation)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching continuation for $playlistId", e)
             emptyList<MusicTrack>() to null
@@ -451,7 +440,7 @@ object YouTubeMusicService {
         try {
             val innertubeRelated = io.github.aedev.flow.data.newmusic.InnertubeMusicService.getRelatedMusic(videoId, audioOnly)
             if (innertubeRelated.isNotEmpty()) {
-                return@withContext KosherContentFilter.filterTracks(innertubeRelated)
+                return@withContext innertubeRelated
                     .filterNot { audioOnly && it.isVideoSong }
                     .take(limit)
             }
@@ -466,7 +455,6 @@ object YouTubeMusicService {
                 ?.filter { isMusicContent(it) }
                 ?.take(limit)
                 ?.mapNotNull { convertToMusicTrack(it) }
-                ?.let { KosherContentFilter.filterTracks(it) }
                 ?.filterNot { audioOnly && it.isVideoSong } ?: emptyList()
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching related music", e)
@@ -486,7 +474,7 @@ object YouTubeMusicService {
                 tracks.addAll(searchMusic("$artist hits", 10))
             }
             
-            KosherContentFilter.filterTracks(tracks.distinctBy { it.videoId }).take(limit)
+            tracks.distinctBy { it.videoId }.take(limit)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching popular artist music", e)
             emptyList()
@@ -528,7 +516,7 @@ object YouTubeMusicService {
         try {
             val innertubePlaylists = io.github.aedev.flow.data.newmusic.InnertubeMusicService.searchPlaylists(query)
             if (innertubePlaylists.isNotEmpty()) {
-                return@withContext KosherContentFilter.filterPlaylists(innertubePlaylists).take(limit)
+                return@withContext innertubePlaylists.take(limit)
             }
             
             val service = ServiceList.YouTube
@@ -544,11 +532,9 @@ object YouTubeMusicService {
                         title = item.name,
                         thumbnailUrl = item.thumbnails.maxByOrNull { it.height }?.url ?: "",
                         trackCount = item.streamCount.toInt(),
-                        author = item.uploaderName ?: "Unknown Artist",
-                        authorId = item.uploaderUrl?.substringAfterLast("/")
+                        author = item.uploaderName ?: "Unknown Artist"
                     )
                 }
-                .let { KosherContentFilter.filterPlaylists(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Error searching playlists", e)
             emptyList()
@@ -563,13 +549,10 @@ object YouTubeMusicService {
      */
     suspend fun fetchArtistDetails(channelId: String): io.github.aedev.flow.ui.screens.music.ArtistDetails? = withContext(Dispatchers.IO) {
         try {
-            if (!KosherContentFilter.isAllowedChannel(channelId)) return@withContext null
-
             // Priority: Innertube Data (Rich Metadata)
             val innertubeDetails = io.github.aedev.flow.data.newmusic.InnertubeMusicService.fetchArtistDetails(channelId)
             if (innertubeDetails != null) {
                 return@withContext innertubeDetails.withFallbackTopTracks()
-                    .takeIf { KosherContentFilter.isAllowedArtist(it) }
             }
             
             // Fallback: NewPipe Strategy
@@ -604,7 +587,6 @@ object YouTubeMusicService {
             val relatedItems = initialPageItems
                 .filter { isMusicContent(it) }
                 .mapNotNull { convertToMusicTrack(it) }
-                .let { KosherContentFilter.filterTracks(it) }
                 .take(20)
 
             val topTracks = relatedItems.ifEmpty {
@@ -626,7 +608,7 @@ object YouTubeMusicService {
                 description = description,
                 bannerUrl = banner,
                 topTracks = topTracks,
-                albums = KosherContentFilter.filterPlaylists(albums)
+                albums = albums
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching artist details for $channelId", e)
@@ -642,7 +624,7 @@ object YouTubeMusicService {
             .joinToString(" ")
             .ifBlank { return this }
 
-        val fallbackTracks = KosherContentFilter.filterTracks(searchMusic(fallbackQuery, 30))
+        val fallbackTracks = searchMusic(fallbackQuery, 30)
         if (fallbackTracks.isEmpty()) return this
 
         return copy(
