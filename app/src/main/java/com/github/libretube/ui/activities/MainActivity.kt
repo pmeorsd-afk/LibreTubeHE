@@ -1,6 +1,7 @@
 package com.github.libretube.ui.activities
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -13,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.widget.SearchView
 import androidx.constraintlayout.motion.widget.Key
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.net.toUri
 import androidx.core.os.bundleOf
@@ -20,6 +22,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.allViews
 import androidx.core.view.children
 import androidx.core.view.isNotEmpty
+import androidx.core.view.updateLayoutParams
 import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
@@ -71,6 +74,7 @@ class MainActivity : AbstractPlayerHostActivity() {
 
     lateinit var navController: NavController
     private var startFragmentId = R.id.homeFragment
+    private var defaultStatusBarColor: Int = Color.TRANSPARENT
 
     private val subscriptionsViewModel: SubscriptionsViewModel by viewModels()
 
@@ -117,6 +121,7 @@ class MainActivity : AbstractPlayerHostActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        defaultStatusBarColor = window.statusBarColor
 
         // manually apply additional padding for edge-to-edge compatibility
         // see https://developer.android.com/develop/ui/views/layout/edge-to-edge
@@ -194,6 +199,10 @@ class MainActivity : AbstractPlayerHostActivity() {
             it.setStartDestination(startFragmentId)
         }
 
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            updateMainChrome(destination.id)
+        }
+
         // Prevent duplicate entries into backstack, if selected item and current
         // visible fragment is different, then navigate to selected item.
         binding.bottomNav.setOnItemReselectedListener {
@@ -225,6 +234,26 @@ class MainActivity : AbstractPlayerHostActivity() {
         loadIntentData()
 
         showUserInfoDialogIfNeeded()
+    }
+
+    private fun updateMainChrome(destinationId: Int) {
+        val isMusicDestination = destinationId == R.id.musicFragment
+        setMusicChromeActive(isMusicDestination)
+    }
+
+    fun setMusicChromeActive(active: Boolean) {
+        binding.appBarLayout.visibility = if (active) View.GONE else View.VISIBLE
+        binding.toolbar.visibility = if (active) View.GONE else View.VISIBLE
+        window.statusBarColor = if (active) Color.BLACK else defaultStatusBarColor
+        binding.fragment.updateLayoutParams<ConstraintLayout.LayoutParams> {
+            if (active) {
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                topToBottom = ConstraintLayout.LayoutParams.UNSET
+            } else {
+                topToTop = ConstraintLayout.LayoutParams.UNSET
+                topToBottom = binding.appBarLayout.id
+            }
+        }
     }
 
     /**

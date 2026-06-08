@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +54,7 @@ import coil3.compose.AsyncImage
 import com.github.libretube.R
 import com.github.libretube.helpers.NavigationHelper
 import com.github.libretube.parcelable.PlayerData
+import com.github.libretube.ui.activities.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.aedev.flow.innertube.models.SongItem
 import io.github.aedev.flow.player.EnhancedMusicPlayerManager
@@ -154,6 +156,16 @@ private fun NavController.goMusicHome() {
 
 @AndroidEntryPoint
 class MusicFragment : FlowChromeFragment() {
+    override fun onResume() {
+        super.onResume()
+        (activity as? MainActivity)?.setMusicChromeActive(true)
+    }
+
+    override fun onPause() {
+        (activity as? MainActivity)?.setMusicChromeActive(false)
+        super.onPause()
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -175,7 +187,12 @@ class MusicFragment : FlowChromeFragment() {
             }
 
             FlowTheme(themeMode = ThemeMode.DARK) {
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .statusBarsPadding()
+                ) {
                     NavHost(
                         navController = navController,
                         startDestination = FlowMusicRoutes.HOME
